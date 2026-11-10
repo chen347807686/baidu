@@ -72,6 +72,26 @@ class KeywordReportRow(KeywordMetrics):
     keyword: str
 
 
+class KeywordDailyRow(KeywordMetrics):
+    """正式日报按日聚合结果，未知转化保留原值且不加入综合线索。"""
+
+    date: Annotated[str, Field(pattern=r"^\d{4}-\d{2}-\d{2}$")]
+    conv_78: int
+    conv_92: int
+
+
+class KeywordDailyResponse(PublicResponse):
+    """精确关键词的每日表现，仅含正式数据与有记录日期，不暗示数据完整。"""
+
+    keyword: str
+    start: str
+    end: str
+    account: int | None
+    data_source: Literal["formal"] = "formal"
+    missing_dates: Literal["omitted"] = "omitted"
+    rows: Annotated[list[KeywordDailyRow], Field(max_length=366)]
+
+
 class ReportFilters(PublicResponse):
     """实际应用的筛选值，日期以 ISO 字符串传递。"""
 

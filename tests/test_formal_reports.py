@@ -13,6 +13,7 @@ from alembic import command
 from alembic.config import Config
 from sqlalchemy import text
 
+from dashboard.daily_reports import keyword_daily_report
 from dashboard.database import load_database_settings, make_engine
 from dashboard.import_preview import load_rows
 from dashboard.keyword_input import prepare_keyword_rows
@@ -92,6 +93,37 @@ def test_formal_and_synthetic_sources() -> None:
                     and result["rows"][0]["conv_92"] == 9
                 )
                 assert result["rows"][0]["lead_total"] == 2
+                # 每日下钻与列表同口径，多设备相加，无权账户不进入每日聚合。
+                detail = keyword_daily_report(conn, -80, day, day, str(raw["keyword"]))
+                assert len(detail.rows) == 1
+                assert detail.rows[0].cost == "14.3400"
+                assert detail.rows[0].click == 15 and detail.rows[0].lead_total == 2
+                assert detail.rows[0].conv_78 == 7 and detail.rows[0].conv_92 == 9
+                with pytest.raises(PermissionError):
+                    keyword_daily_report(
+                        conn, -80, day, day, str(raw["keyword"]), other
+                    )
+                assert (
+                    keyword_daily_report(conn, -999, day, day, str(raw["keyword"])).rows
+                    == []
+                )
+                assert (
+                    keyword_daily_report(conn, -80, day, day, "不存在的精确词").rows
+                    == []
+                )
+                # 新日期独立分组、日期升序；没有记录的中间日期不补零。
+                later = dict(raw, date="2026-11-11", cost="3.0000", click=0)
+                item = prepare_keyword_rows([later], {"synthetic-preview": account})[0]
+                conn.execute(UPSERT, dict(item.row.model_dump(), account_id=account))
+                daily = keyword_daily_report(
+                    conn, -80, day, date(2026, 11, 11), str(raw["keyword"])
+                )
+                assert [row.date for row in daily.rows] == ["2026-11-09", "2026-11-11"]
+                assert daily.rows[1].cpc is None
+                assert daily.missing_dates == "omitted"
+                for start, end in [(day, date(2026, 11, 8)), (day, date(2027, 11, 10))]:
+                    with pytest.raises(ValueError):
+                        keyword_daily_report(conn, -80, start, end, str(raw["keyword"]))
                 synthetic = keyword_report(
                     conn,
                     -80,

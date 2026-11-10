@@ -77,6 +77,8 @@ def test_browser_authentication(monkeypatch: pytest.MonkeyPatch) -> None:
             assert client.get("/assets/reports.css").status_code == 200
             assert client.get("/api/v1/auth/me").status_code == 401
             assert client.get("/api/v1/reports/keywords").status_code == 401
+            daily_url = "/api/v1/reports/keywords/daily?start=2026-11-01&end=2026-11-09&keyword=test"
+            assert client.get(daily_url).status_code == 401
             assert client.post("/api/v1/auth/login", json=body).status_code == 403
             assert (
                 client.post(
@@ -94,6 +96,17 @@ def test_browser_authentication(monkeypatch: pytest.MonkeyPatch) -> None:
             assert invalid.status_code == 422 and "private-input" not in invalid.text
             result = client.post("/api/v1/auth/login", json=body, headers=headers)
             assert result.status_code == 200
+            daily = client.get(daily_url)
+            assert daily.status_code == 200 and daily.json()["rows"] == []
+            assert daily.json()["data_source"] == "formal"
+            assert daily.headers["cache-control"] == "no-store"
+            assert client.get(daily_url + "&account=2147483647").status_code == 403
+            assert (
+                client.get(
+                    "/api/v1/reports/keywords/daily?start=2026-11-09&end=2026-11-01&keyword=test"
+                ).status_code
+                == 422
+            )
             assert (
                 client.get("/api/v1/reports/keywords").json()["data_source"] == "formal"
             )
