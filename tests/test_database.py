@@ -2,7 +2,7 @@
 
 通过 local_mysql.py test 注入测试凭据后运行，否则跳过本测试。
 验证连接不建表、迁移可重复执行、应用账号可查询但不能创建表。
-断言仅适用于当前空基线，新增业务迁移时需要同步更新验收预期。
+断言覆盖当前权限结构，新增业务迁移时需要同步更新验收预期。
 """
 
 import os
@@ -42,9 +42,16 @@ def test_mysql_migration_and_permissions() -> None:
         with engine.connect() as connection:
             assert (
                 connection.scalar(text("SELECT version_num FROM alembic_version"))
-                == "0001"
+                == "0002"
             )
-        assert inspect(engine).get_table_names() == ["alembic_version"]
+        assert set(inspect(engine).get_table_names()) == {
+            "alembic_version",
+            "access_departments",
+            "access_users",
+            "access_accounts",
+            "access_account_grants",
+            "access_department_grants",
+        }
         # 改用运行时账号验证最小权限，不能用迁移账号代替应用访问。
         app_settings = settings.model_copy(
             update={
