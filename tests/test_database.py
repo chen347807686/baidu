@@ -43,13 +43,14 @@ def test_mysql_migration_and_permissions() -> None:
         with engine.connect() as connection:
             assert (
                 connection.scalar(text("SELECT version_num FROM alembic_version"))
-                == "0010"
+                == "0011"
             )
         assert set(inspect(engine).get_table_names()) == {
             "alembic_version",
             "access_departments",
             "access_users",
             "access_accounts",
+            "account_sources",
             "access_account_grants",
             "access_department_grants",
             "auth_credentials",

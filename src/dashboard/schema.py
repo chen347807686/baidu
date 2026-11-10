@@ -2,10 +2,11 @@
 
 查询、比较与写入层统一依赖这里；历史迁移保持独立冻结，通过测试核对实际
 迁移结构。此处描述当前目标结构，安全结构修复由独立迁移实施，导入不执行 DDL。
-认证和导入计划目前使用参数化 SQL，本步只收口原先重复声明的七张表。
+认证和导入计划目前使用参数化 SQL；外部账户映射也纳入共享结构与漂移校验。
 """
 
 import sqlalchemy as sa
+from sqlalchemy.dialects import mysql
 
 metadata = sa.MetaData()
 KEYWORD_COUNTS = (
@@ -50,6 +51,51 @@ accounts = sa.Table(
     sa.Column("owner_id", sa.Integer, sa.ForeignKey("access_users.id")),
     sa.Column("department_id", sa.Integer, sa.ForeignKey("access_departments.id")),
 )
+account_sources = sa.Table(
+    "account_sources",
+    metadata,
+    sa.Column("id", mysql.BIGINT(unsigned=True), primary_key=True),
+    sa.Column(
+        "account_id", sa.Integer, sa.ForeignKey("access_accounts.id"), nullable=False
+    ),
+    sa.Column(
+        "source_namespace", sa.String(64, collation="utf8mb4_0900_bin"), nullable=False
+    ),
+    sa.Column(
+        "external_account_id",
+        sa.String(128, collation="utf8mb4_0900_bin"),
+        nullable=False,
+    ),
+    sa.Column("source_account_name", sa.String(255), nullable=False),
+    sa.Column("channel", sa.String(32, collation="utf8mb4_0900_bin"), nullable=False),
+    # 只允许密钥引用；本表不存 API token 或加密密钥本身。
+    sa.Column("credential_ref", sa.String(128)),
+    sa.Column("active", sa.Boolean, nullable=False),
+    sa.Column("mapping_version", mysql.BIGINT(unsigned=True), nullable=False),
+    sa.Column("created_at", mysql.DATETIME(fsp=6), nullable=False),
+    sa.Column("updated_at", mysql.DATETIME(fsp=6), nullable=False),
+    sa.UniqueConstraint(
+        "source_namespace", "external_account_id", name="uq_account_source_identity"
+    ),
+    sa.CheckConstraint(
+        "channel = 'paid_baidu_search'", name="ck_account_source_channel"
+    ),
+    sa.CheckConstraint("mapping_version >= 1", name="ck_account_source_version"),
+    sa.CheckConstraint(
+        "CHAR_LENGTH(source_namespace) >= 1 AND CHAR_LENGTH(external_account_id) >= 1",
+        name="ck_account_source_identity",
+    ),
+    sa.CheckConstraint("active IN (0,1)", name="ck_account_source_active"),
+    mysql_engine="InnoDB",
+    mysql_charset="utf8mb4",
+    mysql_collate="utf8mb4_0900_as_cs",
+)
+sa.Index(
+    "ix_account_sources_account_active",
+    account_sources.c.account_id,
+    account_sources.c.active,
+)
+
 account_grants = sa.Table(
     "access_account_grants",
     metadata,
