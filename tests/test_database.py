@@ -18,8 +18,9 @@ from sqlalchemy.exc import DBAPIError
 from dashboard.database import load_database_settings, make_engine
 
 
+@pytest.mark.mysql
 @pytest.mark.skipif(
-    not os.environ.get("ONETITLE_TEST_APP_PASSWORD"),
+    not os.environ.get("ONETITLE_TEST_MYSQL_PASSWORD"),
     reason="Run scripts/local_mysql.py test against the isolated local database",
 )
 def test_mysql_migration_and_permissions() -> None:
@@ -27,7 +28,7 @@ def test_mysql_migration_and_permissions() -> None:
     settings = load_database_settings()
     # 限定测试目标，避免将结构验证误用于其它环境或业务库。
     assert settings.host == "127.0.0.1"
-    assert settings.name == "onetitle_v2_local"
+    assert settings.name.startswith("tv2test")
     engine = make_engine(settings)
     config = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
     try:
@@ -61,7 +62,7 @@ def test_mysql_migration_and_permissions() -> None:
         # 改用运行时账号验证最小权限，不能用迁移账号代替应用访问。
         app_settings = settings.model_copy(
             update={
-                "user": "v2_app",
+                "user": os.environ["ONETITLE_TEST_APP_USER"],
                 "password": SecretStr(os.environ["ONETITLE_TEST_APP_PASSWORD"]),
             }
         )

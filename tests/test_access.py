@@ -22,13 +22,14 @@ def ids(connection: Connection, user: int) -> set[int]:
     return {int(row[0]) for row in connection.execute(visible_accounts(user))}
 
 
+@pytest.mark.mysql
 @pytest.mark.skipif(
-    not os.environ.get("ONETITLE_TEST_APP_PASSWORD"), reason="需要独立本机 MySQL"
+    not os.environ.get("ONETITLE_TEST_MYSQL_PASSWORD"), reason="需要独立本机 MySQL"
 )
 def test_access_policy() -> None:
     """验证默认范围与配置变化，确保额外授权不能绕过未分配保护。"""
     settings = load_database_settings()
-    assert settings.host == "127.0.0.1" and settings.name == "onetitle_v2_local"
+    assert settings.host == "127.0.0.1" and settings.name.startswith("tv2test")
     command.upgrade(
         Config(str(Path(__file__).resolve().parents[1] / "alembic.ini")), "head"
     )

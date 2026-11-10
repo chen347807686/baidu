@@ -36,13 +36,14 @@ def test_password_hash() -> None:
         hash_password("short")
 
 
+@pytest.mark.mysql
 @pytest.mark.skipif(
-    not os.environ.get("ONETITLE_TEST_APP_PASSWORD"), reason="需要独立本机 MySQL"
+    not os.environ.get("ONETITLE_TEST_MYSQL_PASSWORD"), reason="需要独立本机 MySQL"
 )
 def test_persistent_authentication() -> None:
     """验证会话生命周期与用户状态，所有合成数据最终回滚。"""
     settings = load_database_settings()
-    assert settings.host == "127.0.0.1" and settings.name == "onetitle_v2_local"
+    assert settings.host == "127.0.0.1" and settings.name.startswith("tv2test")
     command.upgrade(
         Config(str(Path(__file__).resolve().parents[1] / "alembic.ini")), "head"
     )

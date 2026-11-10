@@ -150,6 +150,9 @@ def main() -> None:
             else ["-m", "pytest", "-q", "tests"]
         )
         env["ONETITLE_TEST_APP_PASSWORD"] = credentials["app"]
+        if action == "test":
+            # 集成测试由夹具逐项创建临时库，绝不向运行库写入测试数据。
+            env["ONETITLE_TEST_MYSQL_PASSWORD"] = credentials["root"]
         raise SystemExit(subprocess.call([sys.executable] + args, env=env, cwd=ROOT))
     # 管理操作只访问此脚本约定的回环端口，不使用远端服务器配置。
     connection = pymysql.connect(

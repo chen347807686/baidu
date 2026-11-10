@@ -27,3 +27,13 @@ uv run --locked mypy src tests
 ```
 
 依赖精确版本保存在 uv.lock。不得复制旧系统配置、凭据或数据到本工程。
+
+## 完整数据库测试
+
+本机 MySQL 启动后运行：
+
+```powershell
+uv run --locked python scripts/local_mysql.py test
+```
+
+每项 MySQL 集成测试使用随机独立库和临时账号，结束自动清理，不操作本地运行库的管理员或数据。可同时运行多个测试进程。直接运行 pytest 且未通过本地工具显式提供测试权限时，数据库集成测试会跳过，不能将其视为完整数据库验收。进程强杀可能残留随机测试资源，后续测试不会复用它们。详见 docs/REVIEW-S1-04-FOLLOWUP.md。

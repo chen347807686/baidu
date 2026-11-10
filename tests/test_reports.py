@@ -1,8 +1,8 @@
 """合成关键词报表的真实 MySQL 验证。
 
 仅在本机测试库事务内写入合成账户和日报，结束全部回滚。验证账户权限先于
-聚合、零分母、字面搜索和稳定分页，不使用真实投放数据。当前测试隔离缺陷
-按既有待修记录保留；本模块也只按串行本地方式运行。
+聚合、零分母、字面搜索和稳定分页，不使用真实投放数据。数据库由公共夹具
+按测试独立创建，不再依赖本地运行库或其它测试的数据状态。
 """
 
 import os
@@ -27,13 +27,14 @@ def test_zero_metrics() -> None:
     assert result["consult_rate"] is None and result["lead_rate"] is None
 
 
+@pytest.mark.mysql
 @pytest.mark.skipif(
-    not os.environ.get("ONETITLE_TEST_APP_PASSWORD"), reason="需要独立本机 MySQL"
+    not os.environ.get("ONETITLE_TEST_MYSQL_PASSWORD"), reason="需要独立本机 MySQL"
 )
 def test_keyword_report() -> None:
     """验证合成口径、账户隔离、参数拒绝和数据库分页。"""
     settings = load_database_settings()
-    assert settings.host == "127.0.0.1" and settings.name == "onetitle_v2_local"
+    assert settings.host == "127.0.0.1" and settings.name.startswith("tv2test")
     command.upgrade(
         Config(str(Path(__file__).resolve().parents[1] / "alembic.ini")), "head"
     )

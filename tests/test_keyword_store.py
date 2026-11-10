@@ -19,13 +19,14 @@ from dashboard.keyword_input import KeywordInputError, prepare_keyword_rows
 from dashboard.keyword_store import KeywordWriteError, store_keyword_batch
 
 
+@pytest.mark.mysql
 @pytest.mark.skipif(
-    not os.environ.get("ONETITLE_TEST_APP_PASSWORD"), reason="需要本机独立 MySQL"
+    not os.environ.get("ONETITLE_TEST_MYSQL_PASSWORD"), reason="需要本机独立 MySQL"
 )
 def test_formal_keyword_upsert() -> None:
     """重复同键覆盖而非累加，外键失败时同批先前写入必须回滚。"""
     settings = load_database_settings()
-    assert settings.host == "127.0.0.1" and settings.name == "onetitle_v2_local"
+    assert settings.host == "127.0.0.1" and settings.name.startswith("tv2test")
     command.upgrade(
         Config(str(Path(__file__).resolve().parents[1] / "alembic.ini")), "head"
     )
@@ -122,17 +123,23 @@ def test_formal_keyword_upsert() -> None:
                 ).scalar_one()
                 == "改名词"
             )
-            assert (
-                conn.execute(
-                    text("SELECT COUNT(*) FROM access_accounts WHERE id=2147483647")
-                ).scalar_one()
-                == 0
+        # 在独立库中分配后删除一个真实 ID，确定该外键目标不存在，不猜固定大数。
+        with engine.begin() as conn:
+            conn.execute(
+                text("INSERT INTO access_accounts (name) VALUES ('待删除的外键样本')")
+            )
+            missing_account = int(
+                conn.execute(text("SELECT LAST_INSERT_ID()")).scalar_one()
+            )
+            conn.execute(
+                text("DELETE FROM access_accounts WHERE id=:id"),
+                {"id": missing_account},
             )
         new = prepare_keyword_rows(
             [dict(raw, w_info_id=99)], {"synthetic-store": account_id}
         )[0]
         with pytest.raises(KeywordWriteError):
-            store_keyword_batch(engine, [new, replace(new, account_id=2147483647)])
+            store_keyword_batch(engine, [new, replace(new, account_id=missing_account)])
         with engine.connect() as conn:
             assert (
                 conn.execute(

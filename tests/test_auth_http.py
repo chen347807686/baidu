@@ -21,13 +21,14 @@ from dashboard.auth_http import COOKIE
 from dashboard.database import load_database_settings, make_engine
 
 
+@pytest.mark.mysql
 @pytest.mark.skipif(
-    not os.environ.get("ONETITLE_TEST_APP_PASSWORD"), reason="需要独立本机 MySQL"
+    not os.environ.get("ONETITLE_TEST_MYSQL_PASSWORD"), reason="需要独立本机 MySQL"
 )
 def test_browser_authentication(monkeypatch: pytest.MonkeyPatch) -> None:
     """以不同连接提交权限变化，后续请求必须立即读取新状态。"""
     settings = load_database_settings()
-    assert settings.host == "127.0.0.1" and settings.name == "onetitle_v2_local"
+    assert settings.host == "127.0.0.1" and settings.name.startswith("tv2test")
     command.upgrade(
         Config(str(Path(__file__).resolve().parents[1] / "alembic.ini")), "head"
     )
@@ -56,7 +57,7 @@ def test_browser_authentication(monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("ONETITLE_ENVIRONMENT", "test")
         monkeypatch.setenv("ONETITLE_AUTH_ENABLED", "true")
         monkeypatch.setenv("ONETITLE_PORT", "8082")
-        monkeypatch.setenv("ONETITLE_DB_USER", "v2_app")
+        monkeypatch.setenv("ONETITLE_DB_USER", os.environ["ONETITLE_TEST_APP_USER"])
         monkeypatch.setenv(
             "ONETITLE_DB_PASSWORD", os.environ["ONETITLE_TEST_APP_PASSWORD"]
         )
