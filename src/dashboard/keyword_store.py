@@ -15,31 +15,10 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from dashboard.keyword_input import KeywordInputError, KeywordRow, PreparedKeyword
 
-# 列名均由代码固定，禁止用输入字段拼接 SQL 标识符。
-KEYS = ("date", "account_id", "campaign_id", "adgroup_id", "w_info_id", "device")
-FIELDS = (
-    "date",
-    "account_id",
-    "user_name",
-    "campaign_id",
-    "campaign_name",
-    "adgroup_id",
-    "adgroup_name",
-    "w_info_id",
-    "keyword",
-    "device",
-    "impression",
-    "click",
-    "cost",
-    "conv_form",
-    "conv_3sent",
-    "conv_lead",
-    "conv_1sent",
-    "conv_dial",
-    "conv_wechat",
-    "conv_78",
-    "conv_92",
-)
+# 固定标识符从共享 Table 派生，不接受输入字段拼接 SQL。
+from dashboard.schema import KEYWORD_FIELDS as FIELDS
+from dashboard.schema import KEYWORD_KEYS as KEYS
+
 UPSERT = text(
     "INSERT INTO keyword_daily_v2 ("
     + ",".join(f"`{name}`" for name in FIELDS)

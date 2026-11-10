@@ -11,57 +11,21 @@ from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException, Query, Request, Response
 from sqlalchemy import (
-    Column,
     Connection,
-    Date,
     Engine,
-    Integer,
-    MetaData,
-    Numeric,
-    String,
-    Table,
     func,
     select,
 )
 from sqlalchemy.sql.elements import ColumnElement
 
-from dashboard.access import accounts, visible_accounts
+from dashboard.access import visible_accounts
 from dashboard.auth import AuthenticationError, authenticate
 from dashboard.auth_http import COOKIE
 
-COUNTS = (
-    "impression",
-    "click",
-    "conv_form",
-    "conv_lead",
-    "conv_dial",
-    "conv_wechat",
-    "conv_1sent",
-    "conv_3sent",
-)
-# 仅声明查询字段，不执行建表；样本版本的正式结构由 0006 管理。
-samples = Table(
-    "report_sample_daily",
-    MetaData(),
-    Column("id", Integer),
-    Column("day", Date),
-    Column("account_id", Integer),
-    Column("keyword", String(255)),
-    Column("cost", Numeric(18, 4)),
-    *[Column(name, Integer) for name in COUNTS],
-)
-
-
-# 正式日报查询投影，不自动建表；未知转化只保留原值，不加入综合线索。
-formal = Table(
-    "keyword_daily_v2",
-    MetaData(),
-    Column("date", Date),
-    Column("account_id", Integer),
-    Column("keyword", String),
-    Column("cost", Numeric(18, 4)),
-    *[Column(name, Integer) for name in (*COUNTS, "conv_78", "conv_92")],
-)
+# 查询仅依赖共享 schema，未知转化保留原值，不加入综合线索。
+from dashboard.schema import REPORT_COUNTS as COUNTS
+from dashboard.schema import accounts, samples
+from dashboard.schema import keyword_daily as formal
 
 
 def metrics(raw: dict[str, Any]) -> dict[str, Any]:

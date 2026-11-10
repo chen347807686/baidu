@@ -21,10 +21,11 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from dashboard.auth import utc_now
 from dashboard.database import load_database_settings, make_engine
-from dashboard.import_compare import facts
 from dashboard.import_preview import load_rows, parse_json, read_text
 from dashboard.keyword_input import PreparedKeyword, prepare_keyword_rows
-from dashboard.keyword_store import KEYS, UPSERT, validate_keyword_batch
+from dashboard.keyword_store import UPSERT, validate_keyword_batch
+from dashboard.schema import KEYWORD_KEYS as KEYS
+from dashboard.schema import keyword_daily as facts
 
 
 def digest(value: object) -> str:

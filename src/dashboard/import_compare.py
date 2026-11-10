@@ -8,13 +8,14 @@
 from collections.abc import Sequence
 from typing import Any
 
-from sqlalchemy import Engine, column, select, table, tuple_
+from sqlalchemy import Engine, select, tuple_
 
 from dashboard.keyword_input import PreparedKeyword
-from dashboard.keyword_store import FIELDS, KEYS, validate_keyword_batch
-
-facts = table("keyword_daily_v2", *[column(name) for name in FIELDS])
-accounts = table("access_accounts", column("id"))
+from dashboard.keyword_store import validate_keyword_batch
+from dashboard.schema import KEYWORD_FIELDS as FIELDS
+from dashboard.schema import KEYWORD_KEYS as KEYS
+from dashboard.schema import accounts
+from dashboard.schema import keyword_daily as facts
 
 
 def compare_keyword_batch(

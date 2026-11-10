@@ -8,51 +8,10 @@
 避免 MySQL 长事务旧快照延迟撤权。写操作权限与审批不由此读取策略授权。
 """
 
-from sqlalchemy import (
-    Boolean,
-    Column,
-    Integer,
-    MetaData,
-    String,
-    Table,
-    and_,
-    exists,
-    or_,
-    select,
-)
+from sqlalchemy import and_, exists, or_, select
 from sqlalchemy.sql import Select
 
-# 这里只描述查询所需结构，绝不调用 create_all；实际结构由版本迁移创建。
-metadata = MetaData()
-users = Table(
-    "access_users",
-    metadata,
-    Column("id", Integer, primary_key=True),
-    Column("name", String(100)),
-    Column("role", String(20)),
-    Column("department_id", Integer),
-    Column("active", Boolean),
-)
-accounts = Table(
-    "access_accounts",
-    metadata,
-    Column("id", Integer, primary_key=True),
-    Column("name", String(100)),
-    Column("owner_id", Integer),
-    Column("department_id", Integer),
-)
-account_grants = Table(
-    "access_account_grants",
-    metadata,
-    Column("user_id", Integer, primary_key=True),
-    Column("account_id", Integer, primary_key=True),
-)
-department_grants = Table(
-    "access_department_grants",
-    metadata,
-    Column("user_id", Integer, primary_key=True),
-    Column("department_id", Integer, primary_key=True),
-)
+from dashboard.schema import account_grants, accounts, department_grants, users
 
 
 def visible_accounts(user_id: int) -> Select[int, str]:

@@ -24,23 +24,10 @@ from dashboard.keyword_input import (
     prepare_keyword_rows,
 )
 from dashboard.keyword_store import validate_keyword_batch
+from dashboard.schema import KEYWORD_COUNTS
 
 MAX_BYTES = 5 * 1024 * 1024
-INTEGER_FIELDS = {
-    "campaign_id",
-    "adgroup_id",
-    "w_info_id",
-    "impression",
-    "click",
-    "conv_form",
-    "conv_3sent",
-    "conv_lead",
-    "conv_1sent",
-    "conv_dial",
-    "conv_wechat",
-    "conv_78",
-    "conv_92",
-}
+INTEGER_FIELDS = set(KEYWORD_COUNTS) | {"campaign_id", "adgroup_id", "w_info_id"}
 
 
 def unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
