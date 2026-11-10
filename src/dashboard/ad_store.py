@@ -9,7 +9,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import Engine, insert, select, update
+from sqlalchemy import Engine, insert, select, tuple_, update
 from sqlalchemy.exc import SQLAlchemyError
 
 from dashboard.ad_input import prepare_ad_rows
@@ -65,7 +65,14 @@ def store_ad_batch(
     )
     inserted = updated = unchanged = 0
     try:
-        with engine.begin() as conn:
+        # 账户行锁已串行化同账户写入；READ COMMITTED 避免不存在事实的
+        # FOR UPDATE 产生跨账户间隙锁死锁。这里不依赖可重复读快照做判断。
+        with (
+            engine.connect().execution_options(
+                isolation_level="READ COMMITTED"
+            ) as conn,
+            conn.begin(),
+        ):
             account_ids = sorted({int(str(item["account_id"])) for item in parameters})
             locked_accounts = conn.execute(
                 select(accounts.c.id)
@@ -86,6 +93,25 @@ def store_ad_batch(
             }
             if len(sources) != len(source_ids):
                 raise AdWriteError("来源映射不存在")
+            # 本批最多十键，一次取回全部已有事实，避免每行一次查重往返。
+            # 账户锁保护不存在行的并发插入；已有行仍显式锁定。
+            key_names = [column.name for column in ad_daily.primary_key.columns]
+            existing_rows = {
+                tuple(row[name] for name in key_names): row
+                for row in conn.execute(
+                    select(ad_daily)
+                    .where(
+                        tuple_(*ad_daily.primary_key.columns).in_(
+                            [
+                                tuple(item[name] for name in key_names)
+                                for item in parameters
+                            ]
+                        )
+                    )
+                    .order_by(*ad_daily.primary_key.columns)
+                    .with_for_update()
+                ).mappings()
+            }
             for item in parameters:
                 source = sources[item["source_account_id"]]
                 if (
@@ -98,11 +124,7 @@ def store_ad_batch(
                     column == item[column.name]
                     for column in ad_daily.primary_key.columns
                 ]
-                existing = (
-                    conn.execute(select(ad_daily).where(*conditions).with_for_update())
-                    .mappings()
-                    .first()
-                )
+                existing = existing_rows.get(tuple(item[name] for name in key_names))
                 if existing is None:
                     conn.execute(insert(ad_daily), item)
                     inserted += 1
