@@ -30,6 +30,10 @@ def isolated_mysql(
     if not password:
         pytest.skip("需通过 local_mysql.py test 显式启用隔离 MySQL 测试")
     suffix = uuid.uuid4().hex
+    collation_marker = request.node.get_closest_marker("mysql_collation")
+    collation = collation_marker.args[0] if collation_marker else "utf8mb4_0900_as_cs"
+    if collation not in {"utf8mb4_0900_as_cs", "utf8mb4_0900_ai_ci"}:
+        raise ValueError("测试库排序规则必须来自固定白名单")
     database = "tv2test" + suffix
     migrator, app = "tv2m" + suffix[:16], "tv2a" + suffix[:16]
     migration_password, app_password = secrets.token_hex(24), secrets.token_hex(24)
@@ -52,7 +56,7 @@ def isolated_mysql(
         with admin.connect() as conn:
             conn.execute(
                 text(
-                    f"CREATE DATABASE `{database}` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_as_cs"
+                    f"CREATE DATABASE `{database}` CHARACTER SET utf8mb4 COLLATE {collation}"
                 )
             )
             created_database = True

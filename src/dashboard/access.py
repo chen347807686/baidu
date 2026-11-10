@@ -28,6 +28,8 @@ def _visible_accounts_query(user_id: int) -> Select[int, str]:
         raise TypeError("身份 ID 必须为整数")
     if not -(2**31) <= user_id <= 2**31 - 1:
         raise ValueError("身份 ID 超出数据库整数范围")
+    # 即使尚未升级旧库，也不依赖其大小写不敏感默认规则判断业务角色。
+    role = _users.c.role.collate("utf8mb4_0900_bin")
     extra_account = exists().where(
         _account_grants.c.user_id == _users.c.id,
         _account_grants.c.account_id == _accounts.c.id,
@@ -37,14 +39,14 @@ def _visible_accounts_query(user_id: int) -> Select[int, str]:
         _department_grants.c.department_id == _accounts.c.department_id,
     )
     manager_scope = and_(
-        _users.c.role == "manager",
+        role == "manager",
         or_(_accounts.c.department_id == _users.c.department_id, extra_department),
     )
     # 归属以账户的显式字段为准；调整用户所在部门不会自动重写账户归属。
     assigned_scope = and_(
         _accounts.c.owner_id.is_not(None),
         or_(
-            and_(_users.c.role == "bidder", _accounts.c.owner_id == _users.c.id),
+            and_(role == "bidder", _accounts.c.owner_id == _users.c.id),
             manager_scope,
             extra_account,
         ),
@@ -54,8 +56,8 @@ def _visible_accounts_query(user_id: int) -> Select[int, str]:
         .select_from(_accounts.join(_users, _users.c.id == user_id))
         .where(
             _users.c.active.is_(True),
-            _users.c.role.in_(["bidder", "manager", "admin"]),
-            or_(_users.c.role == "admin", assigned_scope),
+            role.in_(["bidder", "manager", "admin"]),
+            or_(role == "admin", assigned_scope),
         )
         .order_by(_accounts.c.id)
     )

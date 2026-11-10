@@ -1,7 +1,7 @@
 """权限与关键词报表的共享运行时表结构，不执行任何建表或连接操作。
 
 查询、比较与写入层统一依赖这里；历史迁移保持独立冻结，通过测试核对实际
-迁移结构。此处描述当前已有结构，不自动修复角色排序规则等待处理事项。
+迁移结构。此处描述当前目标结构，安全结构修复由独立迁移实施，导入不执行 DDL。
 认证和导入计划目前使用参数化 SQL，本步只收口原先重复声明的七张表。
 """
 
@@ -37,7 +37,7 @@ users = sa.Table(
     metadata,
     sa.Column("id", sa.Integer, primary_key=True),
     sa.Column("name", sa.String(100), nullable=False),
-    sa.Column("role", sa.String(20), nullable=False),
+    sa.Column("role", sa.String(20, collation="utf8mb4_0900_bin"), nullable=False),
     sa.Column("department_id", sa.Integer, sa.ForeignKey("access_departments.id")),
     sa.Column("active", sa.Boolean, nullable=False),
     sa.CheckConstraint("role IN ('bidder','manager','admin')", name="ck_access_role"),
