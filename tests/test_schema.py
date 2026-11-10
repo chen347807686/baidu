@@ -79,6 +79,15 @@ def test_migrations_match_shared_schema() -> None:
             assert compare_metadata(context, metadata) == []
             inspector = inspect(conn)
             for name, model in metadata.tables.items():
+                expected_table_collation = model.dialect_options["mysql"].get("collate")
+                if expected_table_collation:
+                    actual: str = conn.execute(
+                        text(
+                            "SELECT TABLE_COLLATION FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=:table"
+                        ),
+                        {"table": name},
+                    ).scalar_one()
+                    assert actual == expected_table_collation
                 assert inspector.get_pk_constraint(name)["constrained_columns"] == list(
                     model.primary_key.columns.keys()
                 )

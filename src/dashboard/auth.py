@@ -60,9 +60,20 @@ def _derive(password: bytes, salt: bytes, rounds: int) -> bytes:
 
 def hash_password(password: str) -> str:
     """新密码使用当前参数和随机盐，不改变既有哈希格式。"""
-    rounds = _current_rounds()
     if not 12 <= len(password) <= 128:
         raise ValueError("密码长度必须为 12 至 128 个字符")
+    return _rehash_verified_password(password)
+
+
+def _rehash_verified_password(password: str) -> str:
+    """给已成功验证的历史密码升级参数，不套用新建密码最小长度策略。
+
+    此私有入口不能用于注册或重置；调用登录路径时必须先完成旧密码验证。
+    保留最大长度和编码保护，兼容旧短密码不等于允许创建新的短密码。
+    """
+    rounds = _current_rounds()
+    if type(password) is not str or len(password) > 128:
+        raise ValueError("历史密码输入无效")
     try:
         encoded = password.encode("utf-8")
     except UnicodeEncodeError:
@@ -131,7 +142,7 @@ def login(connection: Connection, username: str, password: str) -> str:
         # 登录已持有凭据行锁，参数升级与会话创建同事务；不改变密码或撤销旧会话。
         connection.execute(
             text("UPDATE auth_credentials SET password_hash=:hash WHERE user_id=:user"),
-            {"hash": hash_password(password), "user": row["user_id"]},
+            {"hash": _rehash_verified_password(password), "user": row["user_id"]},
         )
     token = secrets.token_urlsafe(32)
     connection.execute(

@@ -100,8 +100,8 @@ keyword_daily = sa.Table(
     sa.Column(
         "user_name", sa.String(255, collation="utf8mb4_0900_bin"), nullable=False
     ),
-    sa.Column("campaign_name", sa.Text, nullable=False),
-    sa.Column("adgroup_name", sa.Text, nullable=False),
+    sa.Column("campaign_name", sa.Text(collation="utf8mb4_0900_as_cs"), nullable=False),
+    sa.Column("adgroup_name", sa.Text(collation="utf8mb4_0900_as_cs"), nullable=False),
     sa.Column("keyword", sa.Text(collation="utf8mb4_0900_bin"), nullable=False),
     sa.Column("cost", sa.Numeric(18, 4), nullable=False),
     *[sa.Column(name, sa.BigInteger, nullable=False) for name in KEYWORD_COUNTS],
@@ -115,6 +115,7 @@ keyword_daily = sa.Table(
     ),
     mysql_engine="InnoDB",
     mysql_charset="utf8mb4",
+    mysql_collate="utf8mb4_0900_as_cs",
 )
 sa.Index(
     "ix_keyword_daily_account_date", keyword_daily.c.account_id, keyword_daily.c.date
