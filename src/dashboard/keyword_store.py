@@ -10,7 +10,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 from pydantic import ValidationError
-from sqlalchemy import Engine, text
+from sqlalchemy import Connection, Engine, text
 from sqlalchemy.exc import SQLAlchemyError
 
 from dashboard.keyword_input import KeywordInputError, KeywordRow, PreparedKeyword
@@ -69,6 +69,19 @@ def validate_keyword_batch(rows: Sequence[PreparedKeyword]) -> None:
         seen.add(item.key)
 
 
+def write_keyword_rows(conn: Connection, rows: Sequence[PreparedKeyword]) -> None:
+    """校验后在调用方事务中写入，不开启、提交或回滚事务。
+
+    直接写入与计划执行共用此入口，统一覆盖规则和锁定次序。调用方必须
+    提供事务并让写入异常向外传播，由完整事务负责回滚；本函数不吞异常，
+    也不返回已提交行数，因为最终提交仍可能失败。零行不执行 SQL。
+    """
+    validate_keyword_batch(rows)
+    # 固定主键次序减少交叉批次锁顺序冲突，不承诺消除全部死锁。
+    for item in sorted(rows, key=lambda value: value.key):
+        conn.execute(UPSERT, dict(item.row.model_dump(), account_id=item.account_id))
+
+
 def store_keyword_batch(engine: Engine, rows: Sequence[PreparedKeyword]) -> WriteResult:
     """提交完整小批次，零行不连接数据库；提交异常可能需读回核对结果。"""
     validate_keyword_batch(rows)
@@ -76,11 +89,7 @@ def store_keyword_batch(engine: Engine, rows: Sequence[PreparedKeyword]) -> Writ
         return WriteResult(0)
     try:
         with engine.begin() as connection:
-            # 固定主键次序减少交叉批次锁顺序冲突，不承诺消除全部死锁。
-            for item in sorted(rows, key=lambda value: value.key):
-                connection.execute(
-                    UPSERT, dict(item.row.model_dump(), account_id=item.account_id)
-                )
+            write_keyword_rows(connection, rows)
     except SQLAlchemyError:
         raise KeywordWriteError(
             "批次未确认成功，请按主键读回核对后重试；未回显输入"

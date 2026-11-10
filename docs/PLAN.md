@@ -208,3 +208,7 @@ HTTP 默认正式日报存储，页面明确切换正式/合成来源，复用�
 ## 34. 复核正确性修复
 
 旧参数短密码的 rehash 路径与新密码策略分开，HTTP 回归通过；0010 明确正式日报表默认/计划单元名称 collation 并扩展漂移检查。本机独立库已升级，详见 REVIEW-PASSWORD-COLLATION-FOLLOWUP.md。下一步优先共用 Connection 写入入口，随后补数据库错误诊断；配置/时钟与性能项继续保留。
+
+## 35. 正式写入入口收敛
+
+直接小批次与确认计划共用接收 Connection 的写入函数，各自事务边界保留，补充外层业务失败回滚验证。详见 KEYWORD-WRITE-CONSOLIDATION-RESULT.md。下一步补数据库错误的脱敏诊断，性能及业务口径继续独立评估。

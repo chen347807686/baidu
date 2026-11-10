@@ -16,7 +16,11 @@ from sqlalchemy import text
 
 from dashboard.database import load_database_settings, make_engine
 from dashboard.keyword_input import KeywordInputError, prepare_keyword_rows
-from dashboard.keyword_store import KeywordWriteError, store_keyword_batch
+from dashboard.keyword_store import (
+    KeywordWriteError,
+    store_keyword_batch,
+    write_keyword_rows,
+)
 
 
 @pytest.mark.mysql
@@ -101,6 +105,26 @@ def test_formal_keyword_upsert() -> None:
                 {"id": account_id},
             ).one()
             assert str(changed[0]) == "15.0000" and changed[1] == 5
+        # 共用入口即使成功执行，也不能提前提交调用方事务。模拟后续业务失败，
+        # 确认已写入的更正随外层事务一起回滚，保留之前已提交的金额。
+        with (
+            pytest.raises(RuntimeError, match="模拟后续业务失败"),
+            engine.begin() as conn,
+        ):
+            write_keyword_rows(conn, batch)
+            raise RuntimeError("模拟后续业务失败")
+        with engine.connect() as conn:
+            assert (
+                str(
+                    conn.execute(
+                        text(
+                            "SELECT cost FROM keyword_daily_v2 WHERE account_id=:id AND w_info_id=3 AND device='pc'"
+                        ),
+                        {"id": account_id},
+                    ).scalar_one()
+                )
+                == "15.0000"
+            )
         distinct = prepare_keyword_rows(
             [dict(raw, device="mobile"), dict(raw, w_info_id=4)],
             {"synthetic-store": account_id},

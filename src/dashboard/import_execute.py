@@ -23,7 +23,7 @@ from dashboard.auth import utc_now
 from dashboard.database import load_database_settings, make_engine
 from dashboard.import_preview import load_rows, parse_json, read_text
 from dashboard.keyword_input import PreparedKeyword, prepare_keyword_rows
-from dashboard.keyword_store import UPSERT, validate_keyword_batch
+from dashboard.keyword_store import validate_keyword_batch, write_keyword_rows
 from dashboard.schema import KEYWORD_KEYS as KEYS
 from dashboard.schema import keyword_daily as facts
 
@@ -200,10 +200,8 @@ def apply_plan(
             raise ValueError("计划已过期或状态无效")
         if locked_state(conn, rows)[0] != plan["state_hash"]:
             raise ValueError("目标数据或账户已变化，请重新预览")
-        for item in sorted(rows, key=lambda value: value.key):
-            conn.execute(
-                UPSERT, dict(item.row.model_dump(), account_id=item.account_id)
-            )
+        # 共用写入入口不提交事务，确保事实和下方计划成功状态共同提交或回滚。
+        write_keyword_rows(conn, rows)
         conn.execute(
             text(
                 "UPDATE keyword_import_plans SET status='applied',processed=:count,applied_at=:now,applied_by=:operator WHERE id=:id"
