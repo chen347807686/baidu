@@ -34,7 +34,9 @@ HINTS = {
 
 def report_database_error(
     exc: SQLAlchemyError,
-    operation: Literal["keyword_batch", "import_plan", "import_apply", "import_status"],
+    operation: Literal[
+        "keyword_batch", "ad_batch", "import_plan", "import_apply", "import_status"
+    ],
 ) -> str:
     """记录白名单字段并返回安全提示；不从错误类型推断最终提交结果。"""
     code: int | None = None
