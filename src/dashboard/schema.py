@@ -77,6 +77,7 @@ account_sources = sa.Table(
     sa.UniqueConstraint(
         "source_namespace", "external_account_id", name="uq_account_source_identity"
     ),
+    sa.UniqueConstraint("id", "account_id", name="uq_account_source_binding"),
     sa.CheckConstraint(
         "channel = 'paid_baidu_search'", name="ck_account_source_channel"
     ),
@@ -94,6 +95,80 @@ sa.Index(
     "ix_account_sources_account_active",
     account_sources.c.account_id,
     account_sources.c.active,
+)
+
+ad_daily = sa.Table(
+    "ad_daily",
+    metadata,
+    sa.Column(
+        "account_id", sa.Integer, sa.ForeignKey("access_accounts.id"), primary_key=True
+    ),
+    sa.Column("stat_date", sa.Date, primary_key=True),
+    sa.Column(
+        "report_kind", sa.String(32, collation="utf8mb4_0900_bin"), primary_key=True
+    ),
+    sa.Column("grain_key", sa.BINARY(32), primary_key=True),
+    sa.Column("source_account_id", mysql.BIGINT(unsigned=True), nullable=False),
+    sa.Column("grain_version", mysql.SMALLINT(unsigned=True), nullable=False),
+    *[
+        sa.Column(name, mysql.BIGINT(unsigned=True))
+        for name in (
+            "project_id",
+            "campaign_id",
+            "adgroup_id",
+            "keyword_id",
+            "creative_id",
+        )
+    ],
+    *[
+        sa.Column(name, sa.Text(collation="utf8mb4_0900_bin"))
+        for name in ("keyword_text", "search_term", "entity_name")
+    ],
+    sa.Column("device", sa.String(32, collation="utf8mb4_0900_bin")),
+    sa.Column(
+        "device_scope", sa.String(32, collation="utf8mb4_0900_bin"), nullable=False
+    ),
+    sa.Column("dimensions", sa.JSON, nullable=False),
+    sa.Column("impressions", mysql.BIGINT(unsigned=True)),
+    sa.Column("clicks", mysql.BIGINT(unsigned=True)),
+    sa.Column("cost", sa.Numeric(18, 4)),
+    sa.Column(
+        "source_revision", sa.String(64, collation="utf8mb4_0900_bin"), nullable=False
+    ),
+    sa.Column("source_checked_at", mysql.DATETIME(fsp=6), nullable=False),
+    sa.Column("content_hash", sa.BINARY(32), nullable=False),
+    sa.Column("ingested_at", mysql.DATETIME(fsp=6), nullable=False),
+    # 同时约束来源映射和内部账户，防止把另一个账户的来源写入本账户事实。
+    sa.ForeignKeyConstraint(
+        ["source_account_id", "account_id"],
+        ["account_sources.id", "account_sources.account_id"],
+        name="fk_ad_daily_source_binding",
+    ),
+    sa.CheckConstraint(
+        "report_kind IN ('keyword','search_term','creative')", name="ck_ad_daily_kind"
+    ),
+    sa.CheckConstraint(
+        "device_scope IN ('detail','summary','unknown')",
+        name="ck_ad_daily_device_scope",
+    ),
+    sa.CheckConstraint("grain_version >= 1", name="ck_ad_daily_grain_version"),
+    # CHECK 对 NULL 结果视为通过，因而不会把未知金额强制变成零。
+    sa.CheckConstraint("cost >= 0", name="ck_ad_daily_cost"),
+    mysql_engine="InnoDB",
+    mysql_charset="utf8mb4",
+    mysql_collate="utf8mb4_0900_as_cs",
+)
+sa.Index(
+    "ix_ad_daily_account_kind_date",
+    ad_daily.c.account_id,
+    ad_daily.c.report_kind,
+    ad_daily.c.stat_date,
+)
+sa.Index(
+    "ix_ad_daily_account_keyword_date",
+    ad_daily.c.account_id,
+    ad_daily.c.keyword_id,
+    ad_daily.c.stat_date,
 )
 
 source_events = sa.Table(
