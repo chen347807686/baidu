@@ -1,4 +1,4 @@
-/** 合成报表交互：服务端筛选和分页；新请求取消旧请求并校验序号，防止过期响应。
+/** 正式/合成报表交互：服务端筛选和分页；请求取消与序号保护防止过期响应。
  * 会话退出清空数据，文本经 textContent 输出，凭据不进入本地存储。
  */
 "use strict";
@@ -9,7 +9,106 @@
     sequence = 0,
     controller = null,
     active = false;
+  let dailyController = null,
+    dailySequence = 0,
+    dailyContext = null;
+  const dailyDialog = el("daily-dialog");
+  function resetDaily() {
+    ++dailySequence;
+    dailyController?.abort();
+    el("daily-rows").replaceChildren();
+    el("daily-retry").hidden = true;
+    dailyDialog.setAttribute("aria-busy", "false");
+  }
+  function closeDaily() {
+    resetDaily();
+    dailyContext = null;
+    if (dailyDialog.open) dailyDialog.close();
+  }
+  async function loadDaily() {
+    if (!active || !dailyContext || !dailyDialog.open) return;
+    resetDaily();
+    const current = dailySequence;
+    const requestController = new AbortController();
+    dailyController = requestController;
+    const timeout = setTimeout(() => requestController.abort(), 12000);
+    el("daily-status").textContent = "正在加载每日表现…";
+    dailyDialog.setAttribute("aria-busy", "true");
+    try {
+      const response = await fetch(
+        `/api/v1/reports/keywords/daily?${new URLSearchParams(dailyContext)}`,
+        {
+          credentials: "same-origin",
+          cache: "no-store",
+          signal: requestController.signal,
+        },
+      );
+      if (current !== dailySequence || !active) return;
+      if (response.status === 401) {
+        signedOut();
+        message("登录已失效，请重新登录。", true);
+        return;
+      }
+      if (!response.ok) {
+        const error = new Error();
+        error.status = response.status;
+        throw error;
+      }
+      const data = await response.json();
+      if (current !== dailySequence || !active) return;
+      for (const row of data.rows) {
+        const tr = document.createElement("tr");
+        for (const value of [
+          row.date,
+          money(row.cost),
+          row.impression,
+          row.click,
+          row.lead_total,
+          money(row.lead_cost),
+        ]) {
+          const td = document.createElement("td");
+          td.textContent = String(value);
+          tr.append(td);
+        }
+        el("daily-rows").append(tr);
+      }
+      el("daily-status").textContent = data.rows.length
+        ? `共 ${data.rows.length} 个有记录日期。`
+        : "该关键词在当前范围暂无正式日报。";
+    } catch (error) {
+      if (current !== dailySequence || !active) return;
+      el("daily-status").textContent =
+        error.status === 403
+          ? "账户权限已变化，请关闭并刷新账户范围。"
+          : error.status === 422
+            ? "每日表现最多查询 366 天，请缩小日期范围后重试。"
+            : "加载失败或连接超时，请重试。";
+      el("daily-retry").hidden = [403, 422].includes(error.status);
+    } finally {
+      clearTimeout(timeout);
+      if (current === dailySequence)
+        dailyDialog.setAttribute("aria-busy", "false");
+    }
+  }
+  function openDaily(keyword, filters) {
+    dailyContext = { keyword, start: filters.start, end: filters.end };
+    if (filters.account !== null)
+      dailyContext.account = String(filters.account);
+    el("daily-keyword").textContent = keyword;
+    el("daily-range").textContent =
+      `${filters.start} 至 ${filters.end} · ${filters.account === null ? "全部可见账户" : "当前所选账户"}`;
+    dailyDialog.showModal();
+    loadDaily();
+  }
+  el("daily-close").addEventListener("click", closeDaily);
+  dailyDialog.addEventListener("cancel", closeDaily);
+  dailyDialog.addEventListener("close", () => {
+    resetDaily();
+    dailyContext = null;
+  });
+  el("daily-retry").addEventListener("click", loadDaily);
   function clear() {
+    closeDaily();
     el("report-rows").replaceChildren();
     for (const key of ["cost", "click", "leads", "lead-cost"])
       el(`metric-${key}`).textContent = "—";
@@ -98,7 +197,18 @@
             : `${(Number(row.consult_rate) * 100).toFixed(2)}%`,
         ]) {
           const td = document.createElement("td");
-          td.textContent = String(value);
+          if (tr.children.length === 0 && data.data_source === "formal") {
+            // 使用已应用的服务器筛选快照，避免未提交表单改变明细范围。
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "keyword-detail";
+            button.textContent = String(value);
+            button.title = "查看每日表现";
+            button.addEventListener("click", () =>
+              openDaily(row.keyword, data.applied_filters),
+            );
+            td.append(button);
+          } else td.textContent = String(value);
           tr.append(td);
         }
         el("report-rows").append(tr);

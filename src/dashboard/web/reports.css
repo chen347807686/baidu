@@ -164,6 +164,49 @@ td:first-child {
 #report-status[data-error="true"] {
   color: #a63e31;
 }
+/* 每日明细延续白底浅蓝配色，长词换行，窄屏表格独立横向滚动。 */
+#daily-dialog {
+  width: min(920px, 94vw);
+  max-height: 86vh;
+  border: 1px solid #d5e5f5;
+  border-radius: 16px;
+  padding: 24px;
+  color: #22364d;
+}
+#daily-dialog::backdrop {
+  background: rgb(25 48 75 / 35%);
+}
+.daily-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.daily-heading h2 {
+  margin: 0;
+  font-size: 21px;
+}
+#daily-keyword {
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+#daily-range,
+#daily-status {
+  font-size: 13px;
+  color: #48698a;
+}
+.keyword-detail {
+  padding: 0;
+  background: transparent;
+  color: #2368a8;
+  text-align: left;
+  font-size: inherit;
+  overflow-wrap: anywhere;
+}
+.keyword-detail:hover {
+  background: transparent;
+  text-decoration: underline;
+}
 @media (max-width: 800px) {
   .metrics {
     grid-template-columns: repeat(2, 1fr);

@@ -6,9 +6,9 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>登录 · OneTitle 投放看板</title>
     <link rel="stylesheet" href="/assets/login.css?v=formal-source-1" />
-    <link rel="stylesheet" href="/assets/reports.css?v=formal-source-1" />
+    <link rel="stylesheet" href="/assets/reports.css?v=daily-detail-1" />
     <!-- 先注册报表监听，再恢复登录状态，避免快速会话响应丢失初始化通知。 -->
-    <script src="/assets/reports.js?v=formal-source-1" defer></script>
+    <script src="/assets/reports.js?v=daily-detail-1" defer></script>
     <script src="/assets/login.js?v=formal-source-1" defer></script>
   </head>
   <body>
@@ -137,7 +137,7 @@
             <div class="table-scroll">
               <table>
                 <caption>
-                  关键词表现（汇总为整个筛选范围）
+                  关键词表现（汇总为整个筛选范围；正式数据可点击关键词查看每日表现）
                 </caption>
                 <thead>
                   <tr>
@@ -171,6 +171,39 @@
               </div>
             </div>
           </section>
+          <!-- 原生对话框提供键盘焦点限制和 Escape 关闭，明细请求独立取消。 -->
+          <dialog id="daily-dialog" aria-labelledby="daily-title">
+            <div class="daily-heading">
+              <h2 id="daily-title">每日表现</h2>
+              <button id="daily-close" type="button" class="secondary">
+                关闭
+              </button>
+            </div>
+            <p id="daily-keyword"></p>
+            <p id="daily-range"></p>
+            <p id="daily-status" role="status" aria-live="polite"></p>
+            <div class="table-scroll">
+              <table>
+                <caption>
+                  仅显示有日报的日期，缺失日期不代表零投放
+                </caption>
+                <thead>
+                  <tr>
+                    <th>日期</th>
+                    <th>消耗</th>
+                    <th>展现</th>
+                    <th>点击</th>
+                    <th>综合线索</th>
+                    <th>线索成本</th>
+                  </tr>
+                </thead>
+                <tbody id="daily-rows"></tbody>
+              </table>
+            </div>
+            <button id="daily-retry" type="button" class="secondary" hidden>
+              重试加载
+            </button>
+          </dialog>
           <button id="retry" type="button" class="secondary" hidden>
             重新连接
           </button>
