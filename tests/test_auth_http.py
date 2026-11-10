@@ -67,6 +67,8 @@ def test_browser_authentication(monkeypatch: pytest.MonkeyPatch) -> None:
             assert "script-src 'self'" in page.headers["content-security-policy"]
             assert client.get("/assets/login.js").status_code == 200
             assert client.get("/assets/login.css").status_code == 200
+            assert client.get("/assets/reports.js").status_code == 200
+            assert client.get("/assets/reports.css").status_code == 200
             assert client.get("/api/v1/auth/me").status_code == 401
             assert client.get("/api/v1/reports/keywords").status_code == 401
             assert client.post("/api/v1/auth/login", json=body).status_code == 403

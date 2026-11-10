@@ -14,6 +14,8 @@ function message(text, error = false) {
   status.dataset.error = String(error);
 }
 function signedOut() {
+  document.body.classList.remove("authenticated");
+  document.dispatchEvent(new Event("session-ended"));
   loginPanel.hidden = false;
   sessionPanel.hidden = true;
   document.querySelector("#accounts").replaceChildren();
@@ -53,6 +55,8 @@ async function loadSession() {
       `可见账户 · ${user.accounts.length}`;
     loginPanel.hidden = true;
     sessionPanel.hidden = false;
+    document.body.classList.add("authenticated");
+    document.dispatchEvent(new CustomEvent("session-ready", { detail: user }));
     message(
       user.accounts.length
         ? "账户范围已更新。"
@@ -69,7 +73,9 @@ async function perform(action) {
   if (busy) return;
   busy = true;
   retry.hidden = true;
-  document.querySelectorAll("button").forEach((b) => (b.disabled = true));
+  document
+    .querySelectorAll("#login-form button, #logout, #refresh, #retry")
+    .forEach((b) => (b.disabled = true));
   form.setAttribute("aria-busy", "true");
   try {
     await action();
@@ -87,7 +93,9 @@ async function perform(action) {
     }
   } finally {
     busy = false;
-    document.querySelectorAll("button").forEach((b) => (b.disabled = false));
+    document
+      .querySelectorAll("#login-form button, #logout, #refresh, #retry")
+      .forEach((b) => (b.disabled = false));
     form.setAttribute("aria-busy", "false");
   }
 }
