@@ -1,0 +1,73 @@
+<!doctype html>
+<!-- 本地登录页面：事件由外部脚本注册，不保存密码或令牌。 -->
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>登录 · OneTitle 投放看板</title>
+    <link rel="stylesheet" href="/assets/login.css" />
+    <script src="/assets/login.js" defer></script>
+  </head>
+  <body>
+    <main>
+      <aside>
+        <div class="brand">◉ OneTitle <small>V2</small></div>
+        <div>
+          <p class="eyebrow">投放数据工作台</p>
+          <h1>让每一次投放，<br />都有据可循。</h1>
+          <p class="description">
+            在统一的账户范围内查看数据，<br />让分析与日常投放工作衔接得更清晰。
+          </p>
+        </div>
+        <p class="foot">● 本地开发预览</p>
+      </aside>
+      <section class="workspace">
+        <div class="card">
+          <section id="login-panel" hidden>
+            <p class="eyebrow">欢迎回来</p>
+            <h2>登录工作台</h2>
+            <p class="subtitle">使用管理员分配的账号继续。</p>
+            <form id="login-form">
+              <label for="username">登录账号</label
+              ><input
+                id="username"
+                autocomplete="username"
+                maxlength="100"
+                required
+                placeholder="请输入登录账号"
+              /><label for="password">密码</label
+              ><input
+                id="password"
+                type="password"
+                autocomplete="current-password"
+                maxlength="128"
+                required
+                placeholder="请输入密码"
+              /><button type="submit">登录工作台 ↗</button>
+            </form>
+            <p class="help">没有账号或忘记密码？请联系本地管理员。</p>
+          </section>
+          <section id="session-panel" hidden>
+            <p class="eyebrow">身份已验证</p>
+            <h2>已登录工作台</h2>
+            <p class="subtitle">以下是你当前可见的账户。</p>
+            <p id="account-count"></p>
+            <ul id="accounts"></ul>
+            <div class="actions">
+              <button id="refresh" type="button" class="secondary">
+                刷新账户</button
+              ><button id="logout" type="button" class="secondary">
+                退出登录
+              </button>
+            </div>
+          </section>
+          <p id="status" role="status" aria-live="polite">正在检查登录状态…</p>
+          <button id="retry" type="button" class="secondary" hidden>
+            重新连接
+          </button>
+        </div>
+        <footer>OneTitle · 投放监控看板</footer>
+      </section>
+    </main>
+  </body>
+</html>

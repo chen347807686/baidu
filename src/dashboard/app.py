@@ -8,10 +8,12 @@
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from dashboard.auth_http import register_auth
@@ -54,6 +56,22 @@ def create_app() -> FastAPI:
 
     if engine is not None:
         register_auth(app, engine, settings.port)
+        # 本步同源静态登录页用于本地验证，核心业务前端仍按独立批次推进。
+        web = Path(__file__).parent / "web"
+        app.mount("/assets", StaticFiles(directory=web), name="login-assets")
+
+        @app.get("/", include_in_schema=False)
+        def login_page() -> FileResponse:
+            """返回登录页，仅允许同源脚本和样式，不缓存页面内容。"""
+            return FileResponse(
+                web / "index.html",
+                headers={
+                    "Cache-Control": "no-store",
+                    "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
+                    "X-Content-Type-Options": "nosniff",
+                    "Referrer-Policy": "no-referrer",
+                },
+            )
 
     @app.get("/health", response_model=Health)
     def health() -> Health:

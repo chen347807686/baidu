@@ -61,6 +61,12 @@ def test_browser_authentication(monkeypatch: pytest.MonkeyPatch) -> None:
             "ONETITLE_DB_PASSWORD", os.environ["ONETITLE_TEST_APP_PASSWORD"]
         )
         with TestClient(create_app(), base_url="http://127.0.0.1:8082") as client:
+            # 登录页与脚本同源提供，页面不缓存，脚本不使用内联事件。
+            page = client.get("/")
+            assert page.status_code == 200 and "登录工作台" in page.text
+            assert "script-src 'self'" in page.headers["content-security-policy"]
+            assert client.get("/assets/login.js").status_code == 200
+            assert client.get("/assets/login.css").status_code == 200
             assert client.get("/api/v1/auth/me").status_code == 401
             assert client.post("/api/v1/auth/login", json=body).status_code == 403
             assert (

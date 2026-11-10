@@ -1,0 +1,204 @@
+/* 本地登录页样式；适配窄屏，后续业务页面设计独立推进。 */
+:root {
+  font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+  color: #20342d;
+  background: #f6f7f3;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+main {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 46% 54%;
+}
+aside {
+  background: #153f35;
+  color: #fff;
+  padding: 50px 12%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+}
+.brand {
+  font-size: 23px;
+  font-weight: 600;
+}
+.brand small {
+  font-size: 11px;
+  border: 1px solid #ffffff50;
+  border-radius: 5px;
+  padding: 3px 6px;
+  margin-left: 8px;
+}
+.eyebrow {
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: #648372;
+  font-weight: 600;
+  margin-bottom: 20px;
+}
+aside .eyebrow {
+  color: #d9eab2;
+}
+h1 {
+  font-size: clamp(30px, 3.2vw, 48px);
+  font-weight: 550;
+  line-height: 1.55;
+  margin: 0 0 25px;
+}
+.description {
+  font-size: 14px;
+  line-height: 1.9;
+  color: #bed0c6;
+}
+.foot {
+  font-size: 12px;
+  color: #b9cbbb;
+}
+.workspace {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 65px 30px;
+}
+.card {
+  width: 100%;
+  max-width: 380px;
+}
+h2 {
+  font-size: 29px;
+  margin: 0 0 12px;
+  font-weight: 650;
+}
+.subtitle {
+  font-size: 14px;
+  color: #7b887f;
+  line-height: 1.8;
+  margin-bottom: 35px;
+}
+label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin: 22px 0 9px;
+}
+input {
+  width: 100%;
+  height: 49px;
+  border: 1px solid #d7ddd4;
+  border-radius: 8px;
+  padding: 0 14px;
+  font: inherit;
+  font-size: 14px;
+  background: white;
+}
+input::placeholder {
+  color: #9da69e;
+}
+input:focus {
+  outline: 2px solid #83a58d;
+  outline-offset: 2px;
+}
+button {
+  border: 0;
+  border-radius: 8px;
+  min-height: 48px;
+  background: #1c4f3e;
+  color: #fff;
+  padding: 12px 18px;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  font-weight: 600;
+}
+form button {
+  width: 100%;
+  margin-top: 30px;
+}
+button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+button:focus-visible {
+  outline: 2px solid #83a58d;
+  outline-offset: 3px;
+}
+.help {
+  font-size: 12px;
+  line-height: 1.8;
+  color: #8a958b;
+  margin-top: 24px;
+}
+#status {
+  font-size: 13px;
+  line-height: 1.8;
+  color: #68816d;
+  margin-top: 23px;
+  min-height: 24px;
+}
+#status[data-error="true"] {
+  color: #a63e31;
+}
+.secondary {
+  background: #e5eadf;
+  color: #31513e;
+}
+.actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 25px;
+}
+#account-count {
+  font-size: 13px;
+  color: #648372;
+}
+ul {
+  list-style: none;
+  padding: 0;
+  max-height: 280px;
+  overflow: auto;
+}
+li {
+  padding: 14px 0;
+  border-bottom: 1px solid #dde3d6;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+footer {
+  position: absolute;
+  bottom: 25px;
+  color: #9aa397;
+  font-size: 11px;
+}
+[hidden] {
+  display: none !important;
+}
+@media (max-width: 700px) {
+  main {
+    grid-template-columns: 1fr;
+  }
+  aside {
+    padding: 25px 28px;
+    gap: 28px;
+  }
+  h1 {
+    font-size: 28px;
+  }
+  .description,
+  .foot {
+    display: none;
+  }
+  .brand {
+    font-size: 19px;
+  }
+  .workspace {
+    padding: 45px 28px 80px;
+    min-height: 510px;
+  }
+}
