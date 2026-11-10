@@ -4,12 +4,14 @@
 每项测试隔离相关环境变量，不连接真实数据库或外部服务。
 """
 
+from unittest.mock import MagicMock
+
 import pytest
 from fastapi.testclient import TestClient
 
 from dashboard.__main__ import main
 from dashboard.app import create_app
-from dashboard.config import ConfigurationError, load_settings
+from dashboard.config import ConfigurationError, Settings, load_settings
 
 
 @pytest.fixture(autouse=True)
@@ -48,3 +50,21 @@ def test_cli_failure(capsys: pytest.CaptureFixture[str]) -> None:
     """确认启动失败使用约定退出码，并且 stderr 只含安全提示。"""
     assert main() == 2
     assert capsys.readouterr().err == "Invalid configuration fields: environment\n"
+
+
+def test_cli_uses_one_configuration(monkeypatch: pytest.MonkeyPatch) -> None:
+    """启动仅读取一次配置，环境随后变化也不能改变应用使用的配置。"""
+    settings = Settings(environment="test", port=8099)
+    loader = MagicMock(return_value=settings)
+    monkeypatch.setattr("dashboard.__main__.load_settings", loader)
+    # 若应用工厂仍重新读取配置，这个模拟会使测试直接失败。
+    monkeypatch.setattr(
+        "dashboard.app.load_settings",
+        MagicMock(side_effect=AssertionError("重复读取配置")),
+    )
+    runner = MagicMock()
+    monkeypatch.setattr("dashboard.__main__.uvicorn.run", runner)
+    assert main() == 0
+    loader.assert_called_once_with()
+    assert runner.call_args.kwargs["port"] == 8099
+    assert runner.call_args.kwargs["host"] == settings.host

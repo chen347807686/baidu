@@ -6,9 +6,10 @@
 本模块不会自动建表、执行迁移或连接旧系统。
 """
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
+from time import time
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -17,7 +18,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from dashboard.auth_http import register_auth
-from dashboard.config import load_settings
+from dashboard.config import Settings, load_settings
 from dashboard.database import load_database_settings, make_engine
 from dashboard.reports import register_reports
 
@@ -28,9 +29,16 @@ class Health(BaseModel):
     status: str = "ok"
 
 
-def create_app() -> FastAPI:
-    """创建独立应用实例，便于命令行启动及测试隔离。"""
-    settings = load_settings()
+def create_app(
+    settings: Settings | None = None, *, clock: Callable[[], float] = time
+) -> FastAPI:
+    """使用已校验配置创建应用；独立调用时读取配置，限速时钟可按实例注入。
+
+    clock 仅用于登录限速窗口，不改变会话有效期或密码处理。默认使用系统
+    墙上时钟；测试可传入固定时钟，不修改 Python 全局时间函数。
+    """
+    if settings is None:
+        settings = load_settings()
     engine = make_engine(load_database_settings()) if settings.auth_enabled else None
 
     @asynccontextmanager
@@ -56,7 +64,7 @@ def create_app() -> FastAPI:
         )
 
     if engine is not None:
-        register_auth(app, engine, settings.port)
+        register_auth(app, engine, settings.port, clock=clock)
         register_reports(app, engine)
         # 本步同源静态登录页用于本地验证，核心业务前端仍按独立批次推进。
         web = Path(__file__).parent / "web"

@@ -33,8 +33,7 @@ def test_browser_authentication(monkeypatch: pytest.MonkeyPatch) -> None:
         Config(str(Path(__file__).resolve().parents[1] / "alembic.ini")), "head"
     )
     engine = make_engine(settings)
-    # 固定限速窗口，避免测试恰好跨分钟造成边界不确定。
-    monkeypatch.setattr("dashboard.auth_http.time.time", lambda: 1800000000)
+    # 按应用注入固定限速窗口，不影响日志、会话或其他库的全局时钟。
     bucket = hashlib.sha256(b"testclient:30000000").hexdigest()
     headers = {"Origin": "http://127.0.0.1:8082", "X-Onetitle-Request": "1"}
     body = {"username": "http-test", "password": "synthetic-http-password"}
@@ -61,7 +60,9 @@ def test_browser_authentication(monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv(
             "ONETITLE_DB_PASSWORD", os.environ["ONETITLE_TEST_APP_PASSWORD"]
         )
-        with TestClient(create_app(), base_url="http://127.0.0.1:8082") as client:
+        with TestClient(
+            create_app(clock=lambda: 1800000000), base_url="http://127.0.0.1:8082"
+        ) as client:
             # 登录页与脚本同源提供，页面不缓存，脚本不使用内联事件。
             page = client.get("/")
             assert page.status_code == 200 and "登录工作台" in page.text
@@ -164,7 +165,9 @@ def test_browser_authentication(monkeypatch: pytest.MonkeyPatch) -> None:
                     ).status_code
                     == 401
                 )
-        with TestClient(create_app(), base_url="http://127.0.0.1:8082") as second:
+        with TestClient(
+            create_app(clock=lambda: 1800000000), base_url="http://127.0.0.1:8082"
+        ) as second:
             limited = second.post("/api/v1/auth/login", json=body, headers=headers)
             assert limited.status_code == 429 and "Retry-After" in limited.headers
     finally:

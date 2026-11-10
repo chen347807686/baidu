@@ -7,7 +7,8 @@
 """
 
 import hashlib
-import time
+from collections.abc import Callable
+from time import time
 
 from fastapi import FastAPI, HTTPException, Request, Response
 from pydantic import BaseModel, Field, SecretStr
@@ -27,9 +28,13 @@ class LoginInput(BaseModel):
     password: SecretStr = Field(min_length=1, max_length=128)
 
 
-def consume_attempt(engine: Engine, source: str) -> None:
+def consume_attempt(
+    engine: Engine, source: str, *, clock: Callable[[], float] = time
+) -> None:
     """每来源每分钟最多十次尝试；独立提交，错误密码不能回滚限速计数。"""
-    window = int(time.time()) // 60
+    # 单次尝试只读取一次时间，计数窗口与 Retry-After 使用同一时刻。
+    now = int(clock())
+    window = now // 60
     bucket = hashlib.sha256(f"{source}:{window}".encode()).hexdigest()
     with engine.begin() as conn:
         conn.execute(
@@ -53,11 +58,13 @@ def consume_attempt(engine: Engine, source: str) -> None:
         raise HTTPException(
             429,
             "登录尝试过多，请稍后重试",
-            headers={"Retry-After": str(60 - int(time.time()) % 60)},
+            headers={"Retry-After": str(60 - now % 60)},
         )
 
 
-def register_auth(app: FastAPI, engine: Engine, port: int) -> None:
+def register_auth(
+    app: FastAPI, engine: Engine, port: int, *, clock: Callable[[], float] = time
+) -> None:
     """注册本地认证路由，数据库连接由每次请求分别管理。"""
     origins = {f"http://127.0.0.1:{port}", f"http://localhost:{port}"}
 
@@ -85,7 +92,9 @@ def register_auth(app: FastAPI, engine: Engine, port: int) -> None:
     ) -> LoginResponse:
         """校验来源和限速后建立会话，重复登录替换本浏览器旧会话。"""
         require_same_origin(request)
-        consume_attempt(engine, request.client.host if request.client else "unknown")
+        consume_attempt(
+            engine, request.client.host if request.client else "unknown", clock=clock
+        )
         try:
             with engine.begin() as conn:
                 token = login(conn, body.username, body.password.get_secret_value())

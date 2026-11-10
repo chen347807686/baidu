@@ -16,7 +16,8 @@ def main() -> int:
     """启动服务，正常结束返回 0，配置不合法时返回 2。"""
     try:
         settings = load_settings()
-        app = create_app()
+        # 应用注册路由与服务器监听共用同一份已校验配置，避免环境被重复读取。
+        app = create_app(settings)
     except ConfigurationError as exc:
         # 此异常由配置入口统一脱敏，禁止在这里输出原始环境变量。
         print(str(exc), file=sys.stderr)
