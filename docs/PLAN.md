@@ -192,3 +192,7 @@ HTTP 默认正式日报存储，页面明确切换正式/合成来源，复用�
 ## 30. 规范收敛第三步
 
 提供单列 visible_account_ids 与展示用双列 visible_accounts，统一私有策略并修复身份参数隐式转换；Cookie 名称移入中立模块。详见 ACCESS-API-CONSOLIDATION-RESULT.md。下一步 Pydantic HTTP 响应契约，不新增业务范围。
+
+## 31. 规范收敛第四步
+
+认证与报表成功响应显式建模，OpenAPI 和 null/来源语义固定，详见 HTTP-CONTRACT-RESULT.md。本批结构收敛完成；后续优先处理角色 collation 等不依赖新业务需求的已确认安全问题。

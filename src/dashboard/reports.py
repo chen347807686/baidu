@@ -21,6 +21,7 @@ from sqlalchemy.sql.elements import ColumnElement
 from dashboard.access import visible_account_ids
 from dashboard.auth import AuthenticationError, authenticate
 from dashboard.auth_constants import COOKIE
+from dashboard.http_models import KeywordReportResponse
 
 # 查询仅依赖共享 schema，未知转化保留原值，不加入综合线索。
 from dashboard.schema import REPORT_COUNTS as COUNTS
@@ -160,7 +161,11 @@ def register_reports(app: FastAPI, engine: Engine) -> None:
     # 固定请求内的快照隔离级别，避免依赖数据库服务器默认配置。
     report_engine = engine.execution_options(isolation_level="REPEATABLE READ")
 
-    @app.get("/api/v1/reports/keywords")
+    @app.get(
+        "/api/v1/reports/keywords",
+        response_model=KeywordReportResponse,
+        response_model_exclude_unset=True,
+    )
     def report(
         request: Request,
         response: Response,
@@ -173,7 +178,7 @@ def register_reports(app: FastAPI, engine: Engine) -> None:
         page: int = Query(default=1, ge=1),
         page_size: int = Query(default=50, ge=1, le=200),
         source: Literal["formal", "synthetic"] = "formal",
-    ) -> dict[str, Any]:
+    ) -> KeywordReportResponse:
         """返回所选来源；默认昨天结束七天，日期只填一端或倒置时拒绝。"""
         if (start is None) != (end is None):
             raise HTTPException(422, "请同时填写起止日期")
@@ -203,4 +208,4 @@ def register_reports(app: FastAPI, engine: Engine) -> None:
         except ValueError:
             raise HTTPException(422, "报表参数无效") from None
         response.headers["Cache-Control"] = "no-store"
-        return result
+        return KeywordReportResponse.model_validate(result)

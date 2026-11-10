@@ -102,6 +102,14 @@ def test_browser_authentication(monkeypatch: pytest.MonkeyPatch) -> None:
                 ]
                 == "synthetic"
             )
+            formal_contract = client.get("/api/v1/reports/keywords").json()
+            synthetic_contract = client.get(
+                "/api/v1/reports/keywords?source=synthetic"
+            ).json()
+            assert formal_contract["summary"]["conv_78"] == 0
+            assert "conv_78" not in synthetic_contract["summary"]
+            assert synthetic_contract["summary"]["lead_cost"] is None
+            assert isinstance(formal_contract["summary"]["cost"], str)
             assert (
                 client.get(
                     "/api/v1/reports/keywords?source=arbitrary-table"

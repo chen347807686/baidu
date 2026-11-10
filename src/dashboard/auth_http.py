@@ -17,6 +17,7 @@ from starlette.middleware.base import RequestResponseEndpoint
 from dashboard.access import visible_accounts
 from dashboard.auth import AuthenticationError, authenticate, login, logout
 from dashboard.auth_constants import COOKIE
+from dashboard.http_models import CurrentUserResponse, LoginResponse, VisibleAccount
 
 
 class LoginInput(BaseModel):
@@ -78,10 +79,10 @@ def register_auth(app: FastAPI, engine: Engine, port: int) -> None:
         ):
             raise HTTPException(403, "请求来源无效")
 
-    @app.post("/api/v1/auth/login")
+    @app.post("/api/v1/auth/login", response_model=LoginResponse)
     def sign_in(
         body: LoginInput, request: Request, response: Response
-    ) -> dict[str, str]:
+    ) -> LoginResponse:
         """校验来源和限速后建立会话，重复登录替换本浏览器旧会话。"""
         require_same_origin(request)
         consume_attempt(engine, request.client.host if request.client else "unknown")
@@ -101,7 +102,7 @@ def register_auth(app: FastAPI, engine: Engine, port: int) -> None:
             path="/",
         )
         response.headers["Cache-Control"] = "no-store"
-        return {"status": "ok"}
+        return LoginResponse()
 
     @app.post("/api/v1/auth/logout", status_code=204)
     def sign_out(request: Request) -> Response:
@@ -113,17 +114,17 @@ def register_auth(app: FastAPI, engine: Engine, port: int) -> None:
         response.delete_cookie(COOKIE, path="/", httponly=True, samesite="strict")
         return response
 
-    @app.get("/api/v1/auth/me")
-    def current_user(request: Request, response: Response) -> dict[str, object]:
+    @app.get("/api/v1/auth/me", response_model=CurrentUserResponse)
+    def current_user(request: Request, response: Response) -> CurrentUserResponse:
         """根据 Cookie 认证身份并重新计算可见账户，不接受客户端身份 ID。"""
         try:
             with engine.begin() as conn:
                 user = authenticate(conn, request.cookies.get(COOKIE, ""))
                 accounts = [
-                    {"id": row[0], "name": row[1]}
+                    VisibleAccount(id=row[0], name=row[1])
                     for row in conn.execute(visible_accounts(user))
                 ]
         except AuthenticationError:
             raise HTTPException(401, "请先登录") from None
         response.headers["Cache-Control"] = "no-store"
-        return {"user_id": user, "accounts": accounts}
+        return CurrentUserResponse(user_id=user, accounts=accounts)
