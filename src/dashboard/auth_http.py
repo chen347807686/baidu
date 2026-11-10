@@ -16,8 +16,7 @@ from starlette.middleware.base import RequestResponseEndpoint
 
 from dashboard.access import visible_accounts
 from dashboard.auth import AuthenticationError, authenticate, login, logout
-
-COOKIE = "onetitle_v2_session"
+from dashboard.auth_constants import COOKIE
 
 
 class LoginInput(BaseModel):

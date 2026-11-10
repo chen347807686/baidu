@@ -6,20 +6,45 @@
 """
 
 import os
+from decimal import Decimal
 from pathlib import Path
+from typing import cast
 
 import pytest
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import Connection, text
+from sqlalchemy import Connection, select, text
 
-from dashboard.access import visible_accounts
+from dashboard.access import visible_account_ids, visible_accounts
 from dashboard.database import load_database_settings, make_engine
+from dashboard.schema import accounts
 
 
 def ids(connection: Connection, user: int) -> set[int]:
     """执行统一策略，取出当前可见账户 ID 便于断言。"""
-    return {int(row[0]) for row in connection.execute(visible_accounts(user))}
+    detailed = {int(row[0]) for row in connection.execute(visible_accounts(user))}
+    # 实际放入单列 IN 子查询验证，避免仅检查选中列数量而遗漏 MySQL 1241。
+    query = select(accounts.c.id).where(accounts.c.id.in_(visible_account_ids(user)))
+    scalar: set[int] = set(connection.execute(query).scalars())
+    assert scalar == detailed
+    return scalar
+
+
+@pytest.mark.parametrize("value", ["1junk", "1", 1.0, True, False, None, Decimal(1)])
+def test_identity_rejects_implicit_conversion(value: object) -> None:
+    """两个公开入口都在构造 SQL 前拒绝非原生整数，不输出输入内容。"""
+    for query in (visible_account_ids, visible_accounts):
+        with pytest.raises(TypeError) as error:
+            query(cast(int, value))
+        assert "1junk" not in str(error.value)
+
+
+@pytest.mark.parametrize("value", [-(2**31) - 1, 2**31, 10**100])
+def test_identity_rejects_integer_overflow(value: int) -> None:
+    """范围必须与 access_users.id 的有符号 INT 一致，不能让数据库截断。"""
+    for query in (visible_account_ids, visible_accounts):
+        with pytest.raises(ValueError):
+            query(value)
 
 
 @pytest.mark.mysql

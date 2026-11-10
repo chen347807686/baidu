@@ -188,3 +188,7 @@ HTTP 默认正式日报存储，页面明确切换正式/合成来源，复用�
 ## 29. 规范收敛第二步
 
 维护配置和本机实例设置收口到 local_config，manage 复用 DatabaseSettings/make_engine；本机工具、导入目标边界和测试实例共用设置。详见 MAINTENANCE-CONFIG-RESULT.md。下一步最小权限查询 API 与中立认证常量，响应模型再独立推进。
+
+## 30. 规范收敛第三步
+
+提供单列 visible_account_ids 与展示用双列 visible_accounts，统一私有策略并修复身份参数隐式转换；Cookie 名称移入中立模块。详见 ACCESS-API-CONSOLIDATION-RESULT.md。下一步 Pydantic HTTP 响应契约，不新增业务范围。

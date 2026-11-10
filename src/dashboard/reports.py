@@ -18,14 +18,14 @@ from sqlalchemy import (
 )
 from sqlalchemy.sql.elements import ColumnElement
 
-from dashboard.access import visible_accounts
+from dashboard.access import visible_account_ids
 from dashboard.auth import AuthenticationError, authenticate
-from dashboard.auth_http import COOKIE
+from dashboard.auth_constants import COOKIE
 
 # 查询仅依赖共享 schema，未知转化保留原值，不加入综合线索。
 from dashboard.schema import REPORT_COUNTS as COUNTS
-from dashboard.schema import accounts, samples
 from dashboard.schema import keyword_daily as formal
+from dashboard.schema import samples
 
 
 def metrics(raw: dict[str, Any]) -> dict[str, Any]:
@@ -91,10 +91,11 @@ def keyword_report(
     daily = formal if source == "formal" else samples
     day = daily.c.date if source == "formal" else samples.c.day
     # 显式选择单列供 IN 使用，不改变既有双列权限查询的公共契约。
-    scope = visible_accounts(user).with_only_columns(accounts.c.id).order_by(None)
+    allowed = visible_account_ids(user).subquery()
+    scope = select(allowed.c.id)
     if (
         account is not None
-        and conn.execute(scope.where(accounts.c.id == account)).first() is None
+        and conn.execute(scope.where(allowed.c.id == account)).first() is None
     ):
         raise PermissionError("账户不可见")
     conditions: list[ColumnElement[bool]] = [

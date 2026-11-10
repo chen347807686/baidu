@@ -17,7 +17,7 @@ from sqlalchemy import text
 
 from dashboard.app import create_app
 from dashboard.auth import hash_password
-from dashboard.auth_http import COOKIE
+from dashboard.auth_constants import COOKIE
 from dashboard.database import load_database_settings, make_engine
 
 
