@@ -17,6 +17,8 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from dashboard.database import load_database_settings, make_engine
 from dashboard.schema import account_sources, source_events
+from dashboard.source_inspect import inspect_events, inspect_sources
+from dashboard.source_inspect import main as inspect_main
 from dashboard.source_manage import main, maintain_source
 
 
@@ -28,6 +30,23 @@ def test_confirmation_before_credentials(monkeypatch: pytest.MonkeyPatch) -> Non
         "dashboard.source_manage.load_maintenance_database_settings", loader
     )
     assert main() == 2
+    loader.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [["events"], ["list", "--limit", "101"], ["list", "--namespace", "test"]],
+)
+def test_invalid_inspection_before_credentials(
+    arguments: list[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """无界分页或不完整身份核对在读取凭据前拒绝。"""
+    monkeypatch.setattr(sys, "argv", ["inspect", *arguments])
+    loader = MagicMock(side_effect=AssertionError("不得读取凭据"))
+    monkeypatch.setattr(
+        "dashboard.source_inspect.load_maintenance_database_settings", loader
+    )
+    assert inspect_main() == 2
     loader.assert_not_called()
 
 
@@ -127,5 +146,25 @@ def test_source_maintenance() -> None:
             )
             assert row["mapping_version"] == 2 and not row["active"]
             assert len(conn.execute(select(source_events)).all()) == 2
+            mappings = inspect_sources(conn, namespace="test", external_id="abc")
+            assert len(mappings) == 1 and mappings[0]["mapping_version"] == 2
+            assert mappings[0]["active"] is False
+            assert "PRIVATE" not in str(mappings)
+            assert "credential_ref" not in mappings[0]
+            assert inspect_sources(conn, namespace="test", external_id="ABC") == []
+            assert inspect_sources(conn, after_id=identifier) == []
+            first = inspect_events(conn, identifier, limit=1)
+            cursor = first[0]["id"]
+            assert isinstance(cursor, int)
+            second = inspect_events(conn, identifier, after_id=cursor)
+            assert len(first) == len(second) == 1
+            assert (
+                first[0]["mapping_version"] == 1 and second[0]["mapping_version"] == 2
+            )
+        # 显式只读事务仍可核对，维护状态和事件数量不变。
+        with engine.connect() as conn:
+            conn.exec_driver_sql("SET TRANSACTION READ ONLY")
+            assert len(inspect_sources(conn)) == 1
+            assert len(inspect_events(conn, identifier)) == 2
     finally:
         engine.dispose()
