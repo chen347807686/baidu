@@ -96,6 +96,29 @@ sa.Index(
     account_sources.c.active,
 )
 
+source_events = sa.Table(
+    "account_source_events",
+    metadata,
+    sa.Column("id", mysql.BIGINT(unsigned=True), primary_key=True),
+    sa.Column(
+        "source_id",
+        mysql.BIGINT(unsigned=True),
+        sa.ForeignKey("account_sources.id"),
+        nullable=False,
+    ),
+    sa.Column("action", sa.String(16, collation="utf8mb4_0900_bin"), nullable=False),
+    sa.Column("mapping_version", mysql.BIGINT(unsigned=True), nullable=False),
+    sa.Column("operator", sa.String(100), nullable=False),
+    # 仅保存变更字段名，名称、来源 ID 与凭据引用不复制到审计载荷。
+    sa.Column("changed_fields", sa.JSON, nullable=False),
+    sa.Column("created_at", mysql.DATETIME(fsp=6), nullable=False),
+    sa.CheckConstraint("action IN ('create','update')", name="ck_source_event_action"),
+    sa.UniqueConstraint("source_id", "mapping_version", name="uq_source_event_version"),
+    mysql_engine="InnoDB",
+    mysql_charset="utf8mb4",
+    mysql_collate="utf8mb4_0900_as_cs",
+)
+
 account_grants = sa.Table(
     "access_account_grants",
     metadata,
