@@ -2,7 +2,8 @@
 
 读取调用者显式指定的 UTF-8 CSV/JSON 文件和 JSON 账户映射，最多一千行、
 每文件五 MiB。汇总校验错误而非遇首错即退出，不输出源账户名、词文本或
-原始错误内容。没有数据库连接或写入操作；预览通过不等于来源金额已核实。
+原始错误内容。默认不连接数据库；显式 --database 才做本机只读核对，任何
+模式都不执行写入。预览通过不等于来源金额已核实或已获得入库授权。
 """
 
 import argparse
@@ -167,12 +168,53 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="关键词日报只读导入预览，不执行入库")
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--mapping", type=Path, required=True)
+    parser.add_argument(
+        "--database", action="store_true", help="显式启用本机数据库只读对比，不写入"
+    )
     args = parser.parse_args()
     try:
         mapping = parse_json(read_text(args.mapping))
         if not isinstance(mapping, dict):
             raise TypeError("账户映射必须是 JSON 对象")
-        result = preview_rows(load_rows(args.input), mapping)
+        rows = load_rows(args.input)
+        result = preview_rows(rows, mapping)
+        if args.database and result["structure_valid"]:
+            # 按需加载数据库依赖；默认纯文件预览不读取任何数据库配置。
+            from sqlalchemy.exc import SQLAlchemyError
+
+            from dashboard.database import load_database_settings, make_engine
+            from dashboard.import_compare import compare_keyword_batch
+
+            settings = load_database_settings()
+            if (
+                settings.host != "127.0.0.1"
+                or settings.port != 13306
+                or settings.name != "onetitle_v2_local"
+            ):
+                raise ValueError("命令行只允许本机 V2 验证库")
+            engine = make_engine(settings)
+            try:
+                result["database_preview"] = compare_keyword_batch(
+                    engine, prepare_keyword_rows(rows, mapping)
+                )
+                result["database_checked"] = True
+                result["notice"] = (
+                    "文件及数据库只读对比完成；金额来源和执行确认尚未完成，未写入数据库"
+                )
+            except SQLAlchemyError:
+                print(
+                    json.dumps(
+                        {
+                            "error": "数据库只读核对失败，请检查连接、权限及迁移状态；未执行入库"
+                        },
+                        ensure_ascii=False,
+                    )
+                )
+                return 2
+            finally:
+                engine.dispose()
+        elif args.database:
+            result["database_skipped_reason"] = "文件校验未通过，未连接数据库"
     except (OSError, ValueError, TypeError, ArithmeticError, csv.Error, RecursionError):
         print(
             json.dumps(
@@ -184,6 +226,12 @@ def main() -> int:
         )
         return 2
     print(json.dumps(result, ensure_ascii=False, indent=2))
+    if result.get("database_preview", {}).get("counts", {}).get(
+        "missing_account", 0
+    ) or result.get("database_preview", {}).get("counts", {}).get(
+        "account_alias_review", 0
+    ):
+        return 1
     return 0 if result["structure_valid"] else 1
 
 

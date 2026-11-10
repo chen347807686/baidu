@@ -116,3 +116,26 @@ def test_reject_csv_headers_and_large_batches(tmp_path: Path) -> None:
         load_rows(path)
     with pytest.raises(ValueError):
         preview_rows([row()] * 1001, {"synthetic": 1})
+
+
+def test_invalid_file_skips_database(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """文件校验失败时显式数据库模式也不得尝试建立连接。"""
+    source, mapping = tmp_path / "rows.json", tmp_path / "mapping.json"
+    source.write_text(json.dumps([row(click=-1)]), encoding="utf-8")
+    mapping.write_text('{"synthetic":1}', encoding="utf-8")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["preview", "--input", str(source), "--mapping", str(mapping), "--database"],
+    )
+
+    def forbidden_connection(settings: object) -> None:
+        """若前置校验后仍意外连接则使测试立即失败。"""
+        raise AssertionError("不应连接数据库")
+
+    monkeypatch.setattr("dashboard.database.make_engine", forbidden_connection)
+    assert main() == 1
+    result = json.loads(capsys.readouterr().out)
+    assert not result["database_checked"] and "database_skipped_reason" in result
