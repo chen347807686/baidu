@@ -61,8 +61,8 @@ class WriteResult:
     processed: int
 
 
-def store_keyword_batch(engine: Engine, rows: Sequence[PreparedKeyword]) -> WriteResult:
-    """提交完整小批次，零行不连接数据库；提交异常可能需读回核对结果。"""
+def validate_keyword_batch(rows: Sequence[PreparedKeyword]) -> None:
+    """共用的无 I/O 存储前置校验，供文件预览和正式写入同时使用。"""
     if len(rows) > 1000:
         raise KeywordInputError("每批最多 1000 行，请先拆分并设计跨批任务状态")
     seen = set()
@@ -88,6 +88,11 @@ def store_keyword_batch(engine: Engine, rows: Sequence[PreparedKeyword]) -> Writ
         if item.key in seen:
             raise KeywordInputError(f"第 {index} 行主键重复")
         seen.add(item.key)
+
+
+def store_keyword_batch(engine: Engine, rows: Sequence[PreparedKeyword]) -> WriteResult:
+    """提交完整小批次，零行不连接数据库；提交异常可能需读回核对结果。"""
+    validate_keyword_batch(rows)
     if not rows:
         return WriteResult(0)
     try:

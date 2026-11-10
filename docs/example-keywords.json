@@ -1,0 +1,24 @@
+[
+  {
+    "date": "2026-11-09",
+    "user_name": "synthetic-preview",
+    "campaign_id": 101,
+    "campaign_name": "合成计划",
+    "adgroup_id": 201,
+    "adgroup_name": "合成单元",
+    "w_info_id": 301,
+    "keyword": "合成预览词",
+    "device": "pc",
+    "impression": 100,
+    "click": 10,
+    "cost": "12.3400",
+    "conv_form": 1,
+    "conv_3sent": 0,
+    "conv_lead": 0,
+    "conv_1sent": 2,
+    "conv_dial": 0,
+    "conv_wechat": 0,
+    "conv_78": 0,
+    "conv_92": 0
+  }
+]
