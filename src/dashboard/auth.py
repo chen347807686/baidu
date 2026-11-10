@@ -61,7 +61,7 @@ def login(connection: Connection, username: str, password: str) -> str:
         connection.execute(
             text(
                 "SELECT c.user_id, c.password_hash, u.active FROM auth_credentials c "
-                "JOIN access_users u ON u.id=c.user_id WHERE c.login=:login"
+                "JOIN access_users u ON u.id=c.user_id WHERE c.login=:login FOR UPDATE"
             ),
             {"login": username},
         )
