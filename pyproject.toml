@@ -2,7 +2,7 @@
 name = "onetitle-dashboard-v2"
 version = "0.1.0"
 requires-python = ">=3.12,<3.13"
-dependencies = ["fastapi>=0.115,<1", "uvicorn>=0.30,<1", "pydantic-settings>=2.6,<3"]
+dependencies = ["fastapi>=0.115,<1", "uvicorn>=0.30,<1", "pydantic-settings>=2.6,<3", "sqlalchemy>=2.0,<3", "alembic>=1.14,<2", "pymysql[rsa]>=1.1,<2"]
 
 [dependency-groups]
 dev = ["pytest>=8,<10", "httpx>=0.27,<1", "ruff>=0.8,<1", "mypy>=1.13,<2"]
@@ -19,4 +19,8 @@ python_version = "3.12"
 strict = true
 plugins = ["pydantic.mypy"]
 mypy_path = "src"
+
+[[tool.mypy.overrides]]
+module = "pymysql.*"
+ignore_missing_imports = true
 
