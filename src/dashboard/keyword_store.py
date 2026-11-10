@@ -13,6 +13,7 @@ from pydantic import ValidationError
 from sqlalchemy import Connection, Engine, text
 from sqlalchemy.exc import SQLAlchemyError
 
+from dashboard.database_diagnostics import report_database_error
 from dashboard.keyword_input import KeywordInputError, KeywordRow, PreparedKeyword
 
 # 固定标识符从共享 Table 派生，不接受输入字段拼接 SQL。
@@ -90,8 +91,9 @@ def store_keyword_batch(engine: Engine, rows: Sequence[PreparedKeyword]) -> Writ
     try:
         with engine.begin() as connection:
             write_keyword_rows(connection, rows)
-    except SQLAlchemyError:
+    except SQLAlchemyError as exc:
+        hint = report_database_error(exc, "keyword_batch")
         raise KeywordWriteError(
-            "批次未确认成功，请按主键读回核对后重试；未回显输入"
+            hint + "；批次未确认成功，请按主键读回核对后重试；未回显输入"
         ) from None
     return WriteResult(len(rows))

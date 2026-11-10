@@ -14,13 +14,14 @@ import json
 import uuid
 from datetime import timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from sqlalchemy import Connection, Engine, bindparam, select, text
 from sqlalchemy.exc import SQLAlchemyError
 
 from dashboard.auth import utc_now
 from dashboard.database import load_database_settings, make_engine
+from dashboard.database_diagnostics import report_database_error
 from dashboard.import_preview import load_rows, parse_json, read_text
 from dashboard.keyword_input import PreparedKeyword, prepare_keyword_rows
 from dashboard.keyword_store import validate_keyword_batch, write_keyword_rows
@@ -272,12 +273,22 @@ def main() -> int:
             )
         else:
             raise ValueError("执行必须提供计划和确认指纹")
+    except SQLAlchemyError as exc:
+        operations: dict[
+            str, Literal["import_plan", "import_apply", "import_status"]
+        ] = {
+            "plan": "import_plan",
+            "apply": "import_apply",
+            "status": "import_status",
+        }
+        hint = report_database_error(exc, operations[args.action])
+        print(hint + "；操作未确认成功，请按计划 ID 核对状态；未回显业务数据。")
+        return 2
     except (
         OSError,
         ValueError,
         TypeError,
         ArithmeticError,
-        SQLAlchemyError,
         csv.Error,
         RecursionError,
     ):
