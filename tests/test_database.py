@@ -42,7 +42,7 @@ def test_mysql_migration_and_permissions() -> None:
         with engine.connect() as connection:
             assert (
                 connection.scalar(text("SELECT version_num FROM alembic_version"))
-                == "0005"
+                == "0006"
             )
         assert set(inspect(engine).get_table_names()) == {
             "alembic_version",
@@ -55,6 +55,7 @@ def test_mysql_migration_and_permissions() -> None:
             "auth_sessions",
             "auth_login_limits",
             "auth_account_events",
+            "report_sample_daily",
         }
         # 改用运行时账号验证最小权限，不能用迁移账号代替应用访问。
         app_settings = settings.model_copy(

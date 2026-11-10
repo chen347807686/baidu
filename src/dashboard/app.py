@@ -19,6 +19,7 @@ from pydantic import BaseModel
 from dashboard.auth_http import register_auth
 from dashboard.config import load_settings
 from dashboard.database import load_database_settings, make_engine
+from dashboard.reports import register_reports
 
 
 class Health(BaseModel):
@@ -56,6 +57,7 @@ def create_app() -> FastAPI:
 
     if engine is not None:
         register_auth(app, engine, settings.port)
+        register_reports(app, engine)
         # 本步同源静态登录页用于本地验证，核心业务前端仍按独立批次推进。
         web = Path(__file__).parent / "web"
         app.mount("/assets", StaticFiles(directory=web), name="login-assets")

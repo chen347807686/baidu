@@ -68,6 +68,7 @@ def test_browser_authentication(monkeypatch: pytest.MonkeyPatch) -> None:
             assert client.get("/assets/login.js").status_code == 200
             assert client.get("/assets/login.css").status_code == 200
             assert client.get("/api/v1/auth/me").status_code == 401
+            assert client.get("/api/v1/reports/keywords").status_code == 401
             assert client.post("/api/v1/auth/login", json=body).status_code == 403
             assert (
                 client.post(
@@ -85,6 +86,16 @@ def test_browser_authentication(monkeypatch: pytest.MonkeyPatch) -> None:
             assert invalid.status_code == 422 and "private-input" not in invalid.text
             result = client.post("/api/v1/auth/login", json=body, headers=headers)
             assert result.status_code == 200
+            assert (
+                client.get("/api/v1/reports/keywords").json()["data_source"]
+                == "synthetic"
+            )
+            assert (
+                client.get("/api/v1/reports/keywords?start=2026-11-09").status_code
+                == 422
+            )
+            assert client.get("/api/v1/reports/keywords?page=0").status_code == 422
+            assert client.get("/api/v1/reports/keywords?sort=unsafe").status_code == 422
             assert "HttpOnly" in result.headers["set-cookie"]
             assert "SameSite=strict" in result.headers["set-cookie"]
             assert result.headers["cache-control"] == "no-store"

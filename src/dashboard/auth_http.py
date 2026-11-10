@@ -67,7 +67,7 @@ def register_auth(app: FastAPI, engine: Engine, port: int) -> None:
     ) -> Response:
         """认证成功及失败响应都禁止缓存，避免浏览器复用旧身份信息。"""
         response = await call_next(request)
-        if request.url.path.startswith("/api/v1/auth/"):
+        if request.url.path.startswith(("/api/v1/auth/", "/api/v1/reports/")):
             response.headers["Cache-Control"] = "no-store"
         return response
 
