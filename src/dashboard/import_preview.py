@@ -17,6 +17,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
+from dashboard.config import ConfigurationError
 from dashboard.keyword_input import (
     KeywordInputError,
     KeywordRow,
@@ -120,21 +121,11 @@ def preview_rows(
             valid.append(item)
         except KeywordInputError as exc:
             # 不复制底层提示中的任意输入字段名，避免恶意列名泄露到预览报告。
-            code = (
-                "missing_account_mapping"
-                if "缺少账户映射" in str(exc)
-                else "invalid_record"
-            )
-            issue: dict[str, object] = {"row": index, "code": code}
-            if "字段无效：" in str(exc):
-                # 只展示已知模型字段名，任意外来列名不复制到输出。
+            issue: dict[str, object] = {"row": index, "code": exc.code}
+            if exc.fields:
                 issue["fields"] = [
-                    name
-                    for name in str(exc).split("字段无效：", 1)[1].split(", ")
-                    if name in KeywordRow.model_fields
+                    name for name in exc.fields if name in KeywordRow.model_fields
                 ]
-            elif "日期或金额无效" in str(exc):
-                issue["fields"] = ["date", "cost"]
             issues.append(issue)
     return {
         "mode": "preview_only",
@@ -199,6 +190,15 @@ def main() -> int:
                 engine.dispose()
         elif args.database:
             result["database_skipped_reason"] = "文件校验未通过，未连接数据库"
+    except ConfigurationError:
+        # 配置异常继承 ValueError，必须先捕获，避免误报为文件格式问题。
+        print(
+            json.dumps(
+                {"error": "数据库配置无效，请检查本机目标与连接配置；未写入数据库"},
+                ensure_ascii=False,
+            )
+        )
+        return 2
     except (OSError, ValueError, TypeError, ArithmeticError, csv.Error, RecursionError):
         print(
             json.dumps(

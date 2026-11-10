@@ -252,6 +252,10 @@ def main() -> int:
     parser.add_argument("--plan-id")
     parser.add_argument("--confirm")
     args = parser.parse_args()
+    # 参数缺失无需读取数据库配置，直接指出缺少的计划编号。
+    if args.action == "status" and not args.plan_id:
+        print("查询状态必须提供 --plan-id 计划编号；未连接数据库。")
+        return 2
     engine = None
     try:
         settings = load_database_settings()

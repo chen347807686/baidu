@@ -50,6 +50,22 @@ def test_grain_and_original_conversions() -> None:
         prepare_keyword_rows([sample(), sample(keyword="改名")], {"synthetic": 1})
 
 
+def test_structured_validation_metadata() -> None:
+    """错误码和字段元数据来自校验结果，未知列名不进入安全异常。"""
+    with pytest.raises(KeywordInputError) as missing:
+        prepare_keyword_rows([sample()], {})
+    assert missing.value.code == "missing_account_mapping"
+    with pytest.raises(KeywordInputError) as invalid:
+        prepare_keyword_rows(
+            [sample(click=-1, PRIVATE_COLUMN="secret")], {"synthetic": 1}
+        )
+    assert invalid.value.fields == ("click",)
+    assert "PRIVATE" not in str(invalid.value)
+    with pytest.raises(KeywordInputError) as malformed:
+        prepare_keyword_rows([sample(date="bad-date")], {"synthetic": 1})
+    assert malformed.value.fields == ("date", "cost")
+
+
 @pytest.mark.parametrize(
     "changes",
     [

@@ -10,7 +10,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
@@ -18,7 +18,19 @@ Count = Annotated[int, Field(strict=True, ge=0, le=9_223_372_036_854_775_807)]
 
 
 class KeywordInputError(ValueError):
-    """只携带行号和字段名的安全错误，不包含账户名称或整行原始数据。"""
+    """携带稳定错误码与字段元数据，预览分类不依赖中文提示文案。"""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        code: Literal["invalid_record", "missing_account_mapping"] = "invalid_record",
+        fields: tuple[str, ...] = (),
+    ) -> None:
+        """保留现有 ValueError 提示兼容性；输出字段需由调用方按模型白名单过滤。"""
+        super().__init__(message)
+        self.code = code
+        self.fields = fields
 
 
 class KeywordRow(BaseModel):
@@ -106,12 +118,27 @@ def prepare_keyword_rows(
                 values["cost"] = Decimal(str(cost))
             row = KeywordRow.model_validate(values)
         except ValidationError as exc:
-            fields = ", ".join(sorted({str(error["loc"][0]) for error in exc.errors()}))
-            raise KeywordInputError(f"第 {index} 行字段无效：{fields}") from None
+            # 未知列名可能含敏感内容，元数据和提示均只保留模型已知字段。
+            fields = tuple(
+                sorted(
+                    {
+                        str(error["loc"][0])
+                        for error in exc.errors()
+                        if error["loc"] and error["loc"][0] in KeywordRow.model_fields
+                    }
+                )
+            )
+            raise KeywordInputError(
+                f"第 {index} 行字段无效：{', '.join(fields)}", fields=fields
+            ) from None
         except (ValueError, ArithmeticError):
-            raise KeywordInputError(f"第 {index} 行日期或金额无效") from None
+            raise KeywordInputError(
+                f"第 {index} 行日期或金额无效", fields=("date", "cost")
+            ) from None
         if row.user_name not in account_mapping:
-            raise KeywordInputError(f"第 {index} 行缺少账户映射")
+            raise KeywordInputError(
+                f"第 {index} 行缺少账户映射", code="missing_account_mapping"
+            )
         item = PreparedKeyword(
             row, account_mapping[row.user_name], source_float_hex, warnings
         )

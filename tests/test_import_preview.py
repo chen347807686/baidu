@@ -12,7 +12,9 @@ from pathlib import Path
 
 import pytest
 
+from dashboard.config import ConfigurationError
 from dashboard.import_preview import load_rows, main, parse_json, preview_rows
+from dashboard.keyword_input import KeywordInputError
 
 
 def row(**changes: object) -> dict[str, object]:
@@ -139,3 +141,44 @@ def test_invalid_file_skips_database(
     assert main() == 1
     result = json.loads(capsys.readouterr().out)
     assert not result["database_checked"] and "database_skipped_reason" in result
+
+
+def test_issue_metadata_ignores_message(monkeypatch: pytest.MonkeyPatch) -> None:
+    """中文文案变化不影响分类，字段白名单仍屏蔽外来敏感名称。"""
+
+    def changed_validation(rows: object) -> None:
+        """模拟校验层更换提示但保留结构化契约。"""
+        raise KeywordInputError("完全不同的提示", fields=("click", "PRIVATE_COLUMN"))
+
+    monkeypatch.setattr(
+        "dashboard.import_preview.validate_keyword_batch", changed_validation
+    )
+    result = preview_rows([row()], {"synthetic": 1})
+    assert result["issues"] == [
+        {"row": 1, "code": "invalid_record", "fields": ["click"]}
+    ]
+    assert "PRIVATE" not in json.dumps(result)
+
+
+def test_configuration_error_is_not_file_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """有效文件遇到数据库配置失败时，明确引导配置排查且不泄漏异常内容。"""
+    source, mapping = tmp_path / "rows.json", tmp_path / "mapping.json"
+    source.write_text(json.dumps([row()]), encoding="utf-8")
+    mapping.write_text('{"synthetic":1}', encoding="utf-8")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["preview", "--input", str(source), "--mapping", str(mapping), "--database"],
+    )
+
+    def invalid_settings() -> None:
+        """合成错误包含敏感标记，CLI 不得原样输出。"""
+        raise ConfigurationError("PRIVATE_SETTINGS")
+
+    monkeypatch.setattr("dashboard.database.load_database_settings", invalid_settings)
+    assert main() == 2
+    output = capsys.readouterr().out
+    assert "数据库配置无效" in output
+    assert "PRIVATE" not in output and "文件、映射或编码无效" not in output

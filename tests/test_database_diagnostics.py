@@ -27,6 +27,18 @@ class DriverError(Exception):
     sqlstate = "42S02"
 
 
+def test_status_requires_plan_before_database(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """缺少计划编号时直接提示，不读取任何数据库凭据。"""
+    monkeypatch.setattr(sys, "argv", ["import", "status"])
+    settings = MagicMock(side_effect=AssertionError("不得读取配置"))
+    monkeypatch.setattr(import_execute, "load_database_settings", settings)
+    assert import_execute.main() == 2
+    assert "--plan-id" in capsys.readouterr().out
+    settings.assert_not_called()
+
+
 def database_error(code: object = 1146) -> OperationalError:
     """同时污染 SQL、参数和异常消息，覆盖三种常见泄漏来源。"""
     return OperationalError(
