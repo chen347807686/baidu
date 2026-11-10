@@ -1,1 +1,5 @@
-"""Independent dashboard V2 application."""
+"""投放看板 V2 的 Python 包入口。
+
+标识 dashboard 为独立应用包，供启动入口、接口及数据库模块导入。
+本文件不执行初始化操作，导入包不会启动服务、连接数据库或迁移结构。
+"""
