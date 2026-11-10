@@ -20,11 +20,16 @@ import pymysql
 
 # 以脚本位置定位工程，不依赖调用者所在目录；默认端口与旧服务隔离。
 ROOT = Path(__file__).resolve().parents[1]
+# 独立脚本显式加入本工程源码路径，再使用统一本机配置，不依赖外部 PYTHONPATH。
+sys.path.insert(0, str(ROOT / "src"))
+from dashboard.local_config import load_local_credentials, load_local_mysql_settings
+
+LOCAL = load_local_mysql_settings()
 RUNTIME = ROOT / ".runtime" / "mysql"
 BIN = RUNTIME / "mysql-8.4.13-winx64" / "bin"
 DATA = RUNTIME / "data"
-SECRETS = RUNTIME / "local.json"
-PORT = 13306
+SECRETS = LOCAL.credentials_path
+PORT = LOCAL.port
 
 
 def main() -> None:
@@ -39,7 +44,7 @@ def main() -> None:
                 probe.bind(("127.0.0.1", PORT))
             except OSError:
                 raise SystemExit(
-                    "Port 13306 occupied; no existing process changed."
+                    f"Port {PORT} occupied; no existing process changed."
                 ) from None
         if not SECRETS.exists():
             # 数据已有但凭据缺失时必须人工恢复，不能生成新密码覆盖旧身份。
@@ -54,7 +59,7 @@ def main() -> None:
                 ),
                 encoding="utf-8",
             )
-        credentials = json.loads(SECRETS.read_text(encoding="utf-8"))
+        credentials = load_local_credentials(LOCAL)
         # --no-defaults 防止意外读取本机其它 MySQL 安装的全局配置。
         options = [
             str(BIN / "mysqld.exe"),
@@ -79,18 +84,18 @@ def main() -> None:
             # 禁用主机名解析时，localhost 与 127.0.0.1 需分别建立管理身份。
             init.write_text(
                 "ALTER USER 'root'@'localhost' IDENTIFIED BY '"
-                + credentials["root"]
+                + credentials.root.get_secret_value()
                 + "';\n"
                 "CREATE USER 'root'@'127.0.0.1' IDENTIFIED BY '"
-                + credentials["root"]
+                + credentials.root.get_secret_value()
                 + "';\n"
                 "GRANT ALL ON *.* TO 'root'@'127.0.0.1' WITH GRANT OPTION;\n"
                 "CREATE DATABASE onetitle_v2_local CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_as_cs;\n"
                 "CREATE USER 'v2_migrator'@'127.0.0.1' IDENTIFIED BY '"
-                + credentials["migrator"]
+                + credentials.migrator.get_secret_value()
                 + "';\n"
                 "CREATE USER 'v2_app'@'127.0.0.1' IDENTIFIED BY '"
-                + credentials["app"]
+                + credentials.app.get_secret_value()
                 + "';\n"
                 "GRANT ALL ON onetitle_v2_local.* TO 'v2_migrator'@'127.0.0.1';\n"
                 "GRANT SELECT, INSERT, UPDATE, DELETE ON onetitle_v2_local.* TO 'v2_app'@'127.0.0.1';\n",
@@ -119,12 +124,12 @@ def main() -> None:
                     host="127.0.0.1",
                     port=PORT,
                     user="root",
-                    password=credentials["root"],
+                    password=credentials.root.get_secret_value(),
                 )
                 connection.close()
                 # 认证成功后移除含密码的临时 SQL，长期凭据仍在 local.json。
                 init.unlink(missing_ok=True)
-                print("Local MySQL ready at 127.0.0.1:13306")
+                print(f"Local MySQL ready at {LOCAL.host}:{PORT}")
                 return
             except pymysql.MySQLError:
                 if process.poll() is not None:
@@ -133,30 +138,34 @@ def main() -> None:
         raise SystemExit(
             "MySQL startup failed; inspect local server.log (do not publish it)."
         )
-    credentials = json.loads(SECRETS.read_text(encoding="utf-8"))
+    credentials = load_local_credentials(LOCAL)
     if action in {"migrate", "test"}:
         # 凭据经子进程环境传递，避免出现在参数列表；返回子进程原退出码。
         env = dict(
             os.environ,
             PYTHONPATH=str(ROOT / "src"),
-            ONETITLE_DB_NAME="onetitle_v2_local",
+            ONETITLE_DB_NAME=LOCAL.database,
             ONETITLE_DB_USER="v2_migrator",
-            ONETITLE_DB_PASSWORD=credentials["migrator"],
+            ONETITLE_DB_PASSWORD=credentials.migrator.get_secret_value(),
             ONETITLE_DB_PORT=str(PORT),
+            ONETITLE_DB_HOST=LOCAL.host,
         )
         args = (
             ["-m", "alembic", "upgrade", "head"]
             if action == "migrate"
             else ["-m", "pytest", "-q", "tests"]
         )
-        env["ONETITLE_TEST_APP_PASSWORD"] = credentials["app"]
+        env["ONETITLE_TEST_APP_PASSWORD"] = credentials.app.get_secret_value()
         if action == "test":
             # 集成测试由夹具逐项创建临时库，绝不向运行库写入测试数据。
-            env["ONETITLE_TEST_MYSQL_PASSWORD"] = credentials["root"]
+            env["ONETITLE_TEST_MYSQL_PASSWORD"] = credentials.root.get_secret_value()
         raise SystemExit(subprocess.call([sys.executable] + args, env=env, cwd=ROOT))
     # 管理操作只访问此脚本约定的回环端口，不使用远端服务器配置。
     connection = pymysql.connect(
-        host="127.0.0.1", port=PORT, user="root", password=credentials["root"]
+        host="127.0.0.1",
+        port=PORT,
+        user="root",
+        password=credentials.root.get_secret_value(),
     )
     try:
         with connection.cursor() as cursor:

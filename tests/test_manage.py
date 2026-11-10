@@ -6,15 +6,17 @@
 """
 
 import os
+import sys
 from pathlib import Path
 
 import pytest
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import text
+from sqlalchemy import Engine, text
 
+from dashboard import manage
 from dashboard.auth import AuthenticationError, authenticate, login
-from dashboard.database import load_database_settings, make_engine
+from dashboard.database import DatabaseSettings, load_database_settings, make_engine
 from dashboard.manage import update_account
 
 
@@ -99,5 +101,49 @@ def test_account_maintenance() -> None:
                     )
             finally:
                 transaction.rollback()
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.mysql
+@pytest.mark.skipif(
+    not os.environ.get("ONETITLE_TEST_MYSQL_PASSWORD"), reason="需要隔离 MySQL"
+)
+def test_manage_cli_shared_engine(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """完整 CLI 通过统一配置和连接工厂创建账号，不读取真实本机维护凭据。"""
+    settings = load_database_settings()
+    command.upgrade(
+        Config(str(Path(__file__).resolve().parents[1] / "alembic.ini")), "head"
+    )
+    calls: list[DatabaseSettings] = []
+
+    def shared_factory(value: DatabaseSettings) -> Engine:
+        """记录传给共享连接工厂的配置，实际连接仍使用隔离库。"""
+        calls.append(value)
+        return make_engine(value)
+
+    monkeypatch.setattr(manage, "load_maintenance_database_settings", lambda: settings)
+    monkeypatch.setattr(manage, "make_engine", shared_factory)
+    monkeypatch.setattr(
+        "dashboard.manage.getpass.getpass", lambda prompt: "synthetic-cli-password"
+    )
+    monkeypatch.setattr(sys, "argv", ["manage", "bootstrap", "--username", "cli-test"])
+    assert manage.main() == 0 and calls == [settings]
+    assert "synthetic-cli-password" not in capsys.readouterr().out
+    engine = make_engine(settings)
+    try:
+        with engine.begin() as conn:
+            token = login(conn, "cli-test", "synthetic-cli-password")
+            assert authenticate(conn, token) > 0
+            assert (
+                conn.execute(
+                    text(
+                        "SELECT COUNT(*) FROM auth_account_events WHERE action='bootstrap'"
+                    )
+                ).scalar_one()
+                == 1
+            )
     finally:
         engine.dispose()

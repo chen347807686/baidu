@@ -8,14 +8,14 @@
 
 import argparse
 import getpass
-import json
 import warnings
-from pathlib import Path
 
-from sqlalchemy import URL, Connection, create_engine, text
+from sqlalchemy import Connection, text
 from sqlalchemy.exc import SQLAlchemyError
 
 from dashboard.auth import hash_password, utc_now
+from dashboard.database import make_engine
+from dashboard.local_config import load_maintenance_database_settings
 
 
 def update_account(
@@ -78,25 +78,15 @@ def main() -> int:
     parser.add_argument("--username", required=True)
     args = parser.parse_args()
     try:
+        # 先校验连接配置，再提示密码；不在命令模块解析秘密或创建另一条连接路径。
+        settings = load_maintenance_database_settings()
         # 无法隐藏输入的终端直接拒绝，避免退回到明文回显。
         with warnings.catch_warnings():
             warnings.simplefilter("error", getpass.GetPassWarning)
             password = getpass.getpass("请输入密码：")
             if password != getpass.getpass("请再次输入密码："):
                 raise ValueError("两次密码不一致")
-        path = Path(__file__).resolve().parents[2] / ".runtime/mysql/local.json"
-        credentials = json.loads(path.read_text(encoding="utf-8"))
-        engine = create_engine(
-            URL.create(
-                "mysql+pymysql",
-                username="root",
-                password=credentials["root"],
-                host="127.0.0.1",
-                port=13306,
-                database="onetitle_v2_local",
-            ),
-            hide_parameters=True,
-        )
+        engine = make_engine(settings)
         try:
             with engine.connect() as conn:
                 locked = conn.execute(

@@ -256,12 +256,9 @@ def main() -> int:
     engine = None
     try:
         settings = load_database_settings()
-        if (
-            settings.host != "127.0.0.1"
-            or settings.port != 13306
-            or settings.name != "onetitle_v2_local"
-        ):
-            raise ValueError("仅允许本机验证库")
+        from dashboard.local_config import require_local_database
+
+        require_local_database(settings)
         engine = make_engine(settings)
         if args.action == "status" and args.plan_id:
             result = plan_status(engine, args.plan_id)

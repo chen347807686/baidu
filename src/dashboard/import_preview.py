@@ -173,12 +173,9 @@ def main() -> int:
             from dashboard.import_compare import compare_keyword_batch
 
             settings = load_database_settings()
-            if (
-                settings.host != "127.0.0.1"
-                or settings.port != 13306
-                or settings.name != "onetitle_v2_local"
-            ):
-                raise ValueError("命令行只允许本机 V2 验证库")
+            from dashboard.local_config import require_local_database
+
+            require_local_database(settings)
             engine = make_engine(settings)
             try:
                 result["database_preview"] = compare_keyword_batch(

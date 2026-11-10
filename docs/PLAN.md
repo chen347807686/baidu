@@ -184,3 +184,7 @@ HTTP 默认正式日报存储，页面明确切换正式/合成来源，复用�
 ## 28. 规范收敛第一步
 
 用户要求逐步处理结构规范。已统一七张运行时表声明、计数字段与写入列/主键来源，并补冻结迁移结构对比及精度漂移负例。详见 SCHEMA-CONSOLIDATION-RESULT.md。下一步维护配置统一入口，暂不扩展业务。
+
+## 29. 规范收敛第二步
+
+维护配置和本机实例设置收口到 local_config，manage 复用 DatabaseSettings/make_engine；本机工具、导入目标边界和测试实例共用设置。详见 MAINTENANCE-CONFIG-RESULT.md。下一步最小权限查询 API 与中立认证常量，响应模型再独立推进。

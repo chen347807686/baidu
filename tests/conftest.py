@@ -15,6 +15,8 @@ from collections.abc import Iterator
 import pytest
 from sqlalchemy import URL, create_engine, text
 
+from dashboard.local_config import load_local_mysql_settings
+
 
 @pytest.fixture(autouse=True)
 def isolated_mysql(
@@ -32,13 +34,14 @@ def isolated_mysql(
     migrator, app = "tv2m" + suffix[:16], "tv2a" + suffix[:16]
     migration_password, app_password = secrets.token_hex(24), secrets.token_hex(24)
     # 只允许固定本机测试实例，忽略运行环境的 ONETITLE_DB_* 目标配置。
+    local = load_local_mysql_settings()
     admin = create_engine(
         URL.create(
             "mysql+pymysql",
             username="root",
             password=password,
-            host="127.0.0.1",
-            port=13306,
+            host=local.host,
+            port=local.port,
         ),
         isolation_level="AUTOCOMMIT",
         hide_parameters=True,
@@ -70,8 +73,8 @@ def isolated_mysql(
                 )
         for key, value in {
             "ONETITLE_DB_NAME": database,
-            "ONETITLE_DB_HOST": "127.0.0.1",
-            "ONETITLE_DB_PORT": "13306",
+            "ONETITLE_DB_HOST": local.host,
+            "ONETITLE_DB_PORT": str(local.port),
             "ONETITLE_DB_USER": migrator,
             "ONETITLE_DB_PASSWORD": migration_password,
             "ONETITLE_TEST_APP_USER": app,
