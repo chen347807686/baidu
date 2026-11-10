@@ -94,8 +94,19 @@ def test_browser_authentication(monkeypatch: pytest.MonkeyPatch) -> None:
             result = client.post("/api/v1/auth/login", json=body, headers=headers)
             assert result.status_code == 200
             assert (
-                client.get("/api/v1/reports/keywords").json()["data_source"]
+                client.get("/api/v1/reports/keywords").json()["data_source"] == "formal"
+            )
+            assert (
+                client.get("/api/v1/reports/keywords?source=synthetic").json()[
+                    "data_source"
+                ]
                 == "synthetic"
+            )
+            assert (
+                client.get(
+                    "/api/v1/reports/keywords?source=arbitrary-table"
+                ).status_code
+                == 422
             )
             assert (
                 client.get("/api/v1/reports/keywords?start=2026-11-09").status_code

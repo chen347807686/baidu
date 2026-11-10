@@ -41,6 +41,7 @@
       sort: el("sort").value,
       order: el("order").value,
       search: el("search").value,
+      source: el("data-source").value,
     });
     if (start) {
       params.set("start", start);
@@ -48,6 +49,10 @@
     }
     if (el("account").value) params.set("account", el("account").value);
     clear();
+    el("source-note").textContent =
+      el("data-source").value === "formal"
+        ? "正式日报存储 · 显示已入库记录，尚未接入自动拉数"
+        : "合成数据验证 · 不代表真实投放效果";
     el("previous").disabled = true;
     el("next").disabled = true;
     el("report-retry").hidden = true;
@@ -109,7 +114,9 @@
       note(
         total
           ? "查询完成，指标为整个筛选范围汇总。"
-          : "当前筛选范围暂无合成数据，尚未接入真实投放数据。",
+          : data.data_source === "formal"
+            ? "当前筛选范围暂无正式日报，请先完成核对并确认入库。"
+            : "当前筛选范围暂无合成验证数据。",
       );
     } catch (error) {
       if (current !== sequence || !active) return;
@@ -155,7 +162,7 @@
     page = 1;
     load();
   });
-  for (const id of ["sort", "order", "page-size"])
+  for (const id of ["sort", "order", "page-size", "data-source"])
     el(id).addEventListener("change", () => {
       page = 1;
       load();

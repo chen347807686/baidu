@@ -1,7 +1,7 @@
-"""合成关键词报表查询与本地验证接口。
+"""正式与合成关键词报表的统一只读查询入口。
 
 账户权限在 SQL 聚合之前过滤，按词文本跨账户与日期合计，再稳定排序分页。
-列表、总数、汇总在调用方同一事务快照读取。当前仅查询 report_sample_daily，
+列表、总数、汇总在调用方同一事务快照读取。来源白名单选择正式日报或合成表，
 不接旧库或百度；人员/分类/计划细节与真实日粒度后续按正式模型补充。
 """
 
@@ -52,9 +52,24 @@ samples = Table(
 )
 
 
+# 正式日报查询投影，不自动建表；未知转化只保留原值，不加入综合线索。
+formal = Table(
+    "keyword_daily_v2",
+    MetaData(),
+    Column("date", Date),
+    Column("account_id", Integer),
+    Column("keyword", String),
+    Column("cost", Numeric(18, 4)),
+    *[Column(name, Integer) for name in (*COUNTS, "conv_78", "conv_92")],
+)
+
+
 def metrics(raw: dict[str, Any]) -> dict[str, Any]:
     """合计后计算派生指标；十进制字符串传输，零分母返回空值。"""
     row = {name: int(raw.get(name) or 0) for name in COUNTS}
+    row.update(
+        {name: int(raw[name] or 0) for name in ("conv_78", "conv_92") if name in raw}
+    )
     result: dict[str, Any] = dict(raw, **row)
     cost = Decimal(raw.get("cost") or 0)
     lead = sum(
@@ -97,6 +112,7 @@ def keyword_report(
     order: str,
     page: int,
     page_size: int,
+    source: str = "synthetic",
 ) -> dict[str, Any]:
     """在数据库执行过滤、总数和分页，明确请求无权账户时拒绝访问。"""
     if (
@@ -105,8 +121,11 @@ def keyword_report(
         or not 1 <= page_size <= 200
         or sort not in {"cost", "click", "keyword"}
         or order not in {"asc", "desc"}
+        or source not in {"formal", "synthetic"}
     ):
         raise ValueError("报表参数无效")
+    daily = formal if source == "formal" else samples
+    day = daily.c.date if source == "formal" else samples.c.day
     # 显式选择单列供 IN 使用，不改变既有双列权限查询的公共契约。
     scope = visible_accounts(user).with_only_columns(accounts.c.id).order_by(None)
     if (
@@ -115,22 +134,26 @@ def keyword_report(
     ):
         raise PermissionError("账户不可见")
     conditions: list[ColumnElement[bool]] = [
-        samples.c.account_id.in_(scope),
-        samples.c.day.between(start, end),
+        daily.c.account_id.in_(scope),
+        day.between(start, end),
     ]
     if account is not None:
-        conditions.append(samples.c.account_id == account)
+        conditions.append(daily.c.account_id == account)
     if search.strip():
         # 自动转义 LIKE 通配符，百分号和下划线按普通词文本处理。
-        conditions.append(samples.c.keyword.contains(search.strip(), autoescape=True))
+        conditions.append(daily.c.keyword.contains(search.strip(), autoescape=True))
     totals = [
-        func.coalesce(func.sum(samples.c[name]), 0).label(name)
-        for name in ("cost", *COUNTS)
+        func.coalesce(func.sum(daily.c[name]), 0).label(name)
+        for name in (
+            "cost",
+            *COUNTS,
+            *(("conv_78", "conv_92") if source == "formal" else ()),
+        )
     ]
     grouped = (
-        select(samples.c.keyword, *totals)
+        select(daily.c.keyword, *totals)
         .where(*conditions)
-        .group_by(samples.c.keyword)
+        .group_by(daily.c.keyword)
         .subquery()
     )
     total = int(conn.execute(select(func.count()).select_from(grouped)).scalar_one())
@@ -154,7 +177,7 @@ def keyword_report(
         "summary": summary,
         "page": page,
         "page_size": page_size,
-        "data_source": "synthetic",
+        "data_source": source,
         "applied_filters": {
             "start": start.isoformat(),
             "end": end.isoformat(),
@@ -162,12 +185,13 @@ def keyword_report(
             "search": search.strip(),
             "sort": sort,
             "order": order,
+            "source": source,
         },
     }
 
 
 def register_reports(app: FastAPI, engine: Engine) -> None:
-    """挂载需登录的合成报表读取接口，使用独立请求事务。"""
+    """挂载需登录的报表读取接口，使用独立请求事务。"""
     # 固定请求内的快照隔离级别，避免依赖数据库服务器默认配置。
     report_engine = engine.execution_options(isolation_level="REPEATABLE READ")
 
@@ -183,8 +207,9 @@ def register_reports(app: FastAPI, engine: Engine) -> None:
         order: Literal["asc", "desc"] = "desc",
         page: int = Query(default=1, ge=1),
         page_size: int = Query(default=50, ge=1, le=200),
+        source: Literal["formal", "synthetic"] = "formal",
     ) -> dict[str, Any]:
-        """返回样本报表；默认昨天结束七天，日期只填一端或倒置时拒绝。"""
+        """返回所选来源；默认昨天结束七天，日期只填一端或倒置时拒绝。"""
         if (start is None) != (end is None):
             raise HTTPException(422, "请同时填写起止日期")
         if start is None or end is None:
@@ -204,6 +229,7 @@ def register_reports(app: FastAPI, engine: Engine) -> None:
                     order,
                     page,
                     page_size,
+                    source,
                 )
         except AuthenticationError:
             raise HTTPException(401, "请先登录") from None

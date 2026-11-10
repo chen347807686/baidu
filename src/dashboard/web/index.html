@@ -5,11 +5,11 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>登录 · OneTitle 投放看板</title>
-    <link rel="stylesheet" href="/assets/login.css?v=report-init-2" />
-    <link rel="stylesheet" href="/assets/reports.css?v=report-init-2" />
+    <link rel="stylesheet" href="/assets/login.css?v=formal-source-1" />
+    <link rel="stylesheet" href="/assets/reports.css?v=formal-source-1" />
     <!-- 先注册报表监听，再恢复登录状态，避免快速会话响应丢失初始化通知。 -->
-    <script src="/assets/reports.js?v=report-init-2" defer></script>
-    <script src="/assets/login.js?v=report-init-2" defer></script>
+    <script src="/assets/reports.js?v=formal-source-1" defer></script>
+    <script src="/assets/login.js?v=formal-source-1" defer></script>
   </head>
   <body>
     <main>
@@ -66,8 +66,17 @@
           </section>
           <p id="status" role="status" aria-live="polite">正在检查登录状态…</p>
           <section id="report-panel" hidden aria-label="关键词报表">
-            <p class="sample-note">合成数据验证 · 尚未接入真实百度投放数据</p>
+            <p class="sample-note" id="source-note">
+              正式日报存储 · 显示已入库记录，尚未接入自动拉数
+            </p>
             <form id="report-filters" class="filters">
+              <div>
+                <label for="data-source">数据来源</label
+                ><select id="data-source">
+                  <option value="formal">正式日报存储</option>
+                  <option value="synthetic">合成数据验证</option>
+                </select>
+              </div>
               <div>
                 <label for="start">开始日期</label
                 ><input id="start" type="date" required />
