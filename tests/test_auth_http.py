@@ -64,6 +64,10 @@ def test_browser_authentication(monkeypatch: pytest.MonkeyPatch) -> None:
             # 登录页与脚本同源提供，页面不缓存，脚本不使用内联事件。
             page = client.get("/")
             assert page.status_code == 200 and "登录工作台" in page.text
+            # 报表监听必须先于恢复会话注册，防止快会话、慢脚本时丢失通知。
+            assert page.text.index("/assets/reports.js") < page.text.index(
+                "/assets/login.js"
+            )
             assert "script-src 'self'" in page.headers["content-security-policy"]
             assert client.get("/assets/login.js").status_code == 200
             assert client.get("/assets/login.css").status_code == 200

@@ -5,10 +5,11 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>登录 · OneTitle 投放看板</title>
-    <link rel="stylesheet" href="/assets/login.css" />
-    <link rel="stylesheet" href="/assets/reports.css" />
-    <script src="/assets/login.js" defer></script>
-    <script src="/assets/reports.js" defer></script>
+    <link rel="stylesheet" href="/assets/login.css?v=report-init-2" />
+    <link rel="stylesheet" href="/assets/reports.css?v=report-init-2" />
+    <!-- 先注册报表监听，再恢复登录状态，避免快速会话响应丢失初始化通知。 -->
+    <script src="/assets/reports.js?v=report-init-2" defer></script>
+    <script src="/assets/login.js?v=report-init-2" defer></script>
   </head>
   <body>
     <main>
