@@ -22,7 +22,14 @@ def main() -> int:
         print(str(exc), file=sys.stderr)
         return 2
     # 本地配置限制为回环地址；关闭访问日志，避免默认记录请求内容。
-    uvicorn.run(app, host=settings.host, port=settings.port, access_log=False)
+    # 本机阶段不信任代理转发头，防止伪造来源地址绕过登录限速。
+    uvicorn.run(
+        app,
+        host=settings.host,
+        port=settings.port,
+        access_log=False,
+        proxy_headers=False,
+    )
     return 0
 
 

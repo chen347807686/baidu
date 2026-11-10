@@ -15,7 +15,7 @@ from dashboard.config import ConfigurationError, load_settings
 @pytest.fixture(autouse=True)
 def clean_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     """清除会影响测试的运行配置，pytest 会在测试后恢复原环境。"""
-    for name in ("ENVIRONMENT", "HOST", "PORT"):
+    for name in ("ENVIRONMENT", "HOST", "PORT", "AUTH_ENABLED"):
         monkeypatch.delenv("ONETITLE_" + name, raising=False)
 
 

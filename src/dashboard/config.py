@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     environment: Literal["local", "test"]
     host: Literal["127.0.0.1"] = "127.0.0.1"
     port: int = Field(default=8082, ge=1024, le=65535)
+    # 仅显式开启时挂载数据库登录接口，健康服务仍可独立启动。
+    auth_enabled: bool = False
 
 
 def load_settings() -> Settings:
