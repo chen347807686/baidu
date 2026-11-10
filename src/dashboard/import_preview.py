@@ -77,9 +77,9 @@ def parse_json(text: str) -> Any:
     )
 
 
-def load_rows(path: Path) -> list[Mapping[str, object]]:
+def load_rows(path: Path, *, content: str | None = None) -> list[Mapping[str, object]]:
     """按扩展名读取结构化记录；CSV 计数仅允许十进制非负整数文本。"""
-    content = read_text(path)
+    content = read_text(path) if content is None else content
     if path.suffix.lower() == ".json":
         rows = parse_json(content)
         if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
