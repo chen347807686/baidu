@@ -21,6 +21,7 @@ from dashboard.auth_http import register_auth
 from dashboard.config import Settings, load_settings
 from dashboard.daily_reports import register_daily_reports
 from dashboard.database import load_database_settings, make_engine
+from dashboard.keyword_actions import register_keyword_actions
 from dashboard.reports import register_reports
 
 
@@ -68,6 +69,7 @@ def create_app(
         register_auth(app, engine, settings.port, clock=clock)
         register_reports(app, engine)
         register_daily_reports(app, engine)
+        register_keyword_actions(app, engine)
         # 本步同源静态登录页用于本地验证，核心业务前端仍按独立批次推进。
         web = Path(__file__).parent / "web"
         app.mount("/assets", StaticFiles(directory=web), name="login-assets")
