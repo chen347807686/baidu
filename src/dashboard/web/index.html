@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="/assets/reports.css?v=daily-detail-1" />
     <!-- 先注册报表监听，再恢复登录状态，避免快速会话响应丢失初始化通知。 -->
     <script src="/assets/reports.js?v=daily-detail-1" defer></script>
-    <script src="/assets/login.js?v=formal-source-1" defer></script>
+    <script src="/assets/login.js?v=preview-mode-2" defer></script>
   </head>
   <body>
     <main>
@@ -93,7 +93,7 @@
               </div>
               <div>
                 <label for="search">关键词包含</label
-                ><input id="search" maxlength="255" placeholder="输入关键词" />
+                ><input id="search" maxlength="255" placeholder="输入关键词或用户搜索词" />
               </div>
               <button type="submit">查询</button>
             </form>
@@ -108,6 +108,11 @@
               </div>
             </div>
             <div class="table-tools">
+              <div class="view-switch" role="tablist" aria-label="关键词工作台视图">
+                <button id="view-original" type="button" class="secondary view-tab active">原关键词</button>
+                <button id="view-search-terms" type="button" class="secondary view-tab">用户搜索词</button>
+                <button id="view-expansions" type="button" class="secondary view-tab">拓词结果</button>
+              </div>
               <div>
                 <label for="sort">排序字段</label
                 ><select id="sort">
@@ -132,6 +137,15 @@
                   <option>200</option>
                 </select>
               </div>
+              <div>
+                <label for="quality-filter">质量筛选</label>
+                <select id="quality-filter">
+                  <option value="">全部质量</option>
+                  <option value="high">仅优质词</option>
+                  <option value="ordinary">普通词</option>
+                  <option value="pending">待判断</option>
+                </select>
+              </div>
             </div>
             <p id="report-status" role="status" aria-live="polite"></p>
             <div class="table-scroll">
@@ -142,12 +156,16 @@
                 <thead>
                   <tr>
                     <th scope="col">关键词</th>
+                    <th scope="col">用户搜索词</th>
                     <th scope="col">消耗</th>
                     <th scope="col">展现</th>
                     <th scope="col">点击</th>
                     <th scope="col">综合线索</th>
                     <th scope="col">线索成本</th>
                     <th scope="col">咨询率</th>
+                    <th scope="col">质量</th>
+                    <th scope="col">否词状态</th>
+                    <th scope="col">操作</th>
                   </tr>
                 </thead>
                 <tbody id="report-rows"></tbody>
@@ -171,6 +189,56 @@
               </div>
             </div>
           </section>
+          <dialog id="negative-dialog" aria-labelledby="negative-title">
+            <div class="daily-heading">
+              <h2 id="negative-title">否词规则预览</h2>
+              <button id="negative-close" type="button" class="secondary">关闭</button>
+            </div>
+            <p id="negative-word"></p>
+            <form id="negative-form">
+              <label for="negative-account">账户</label>
+              <select id="negative-account" required></select>
+              <label for="negative-custom">自定义否词（每行一个）</label>
+              <textarea id="negative-custom" rows="3" maxlength="5000" placeholder="例如：招聘&#10;兼职"></textarea>
+              <label for="negative-categories">分类否词（每行一个，格式：分类=词1,词2）</label>
+              <textarea id="negative-categories" rows="3" maxlength="5000" placeholder="例如：招聘=招聘,兼职"></textarea>
+              <label for="negative-brands">竞品品牌（每行一个）</label>
+              <textarea id="negative-brands" rows="2" maxlength="2000"></textarea>
+              <label for="negative-regions">非目标区域（每行一个）</label>
+              <textarea id="negative-regions" rows="2" maxlength="2000"></textarea>
+              <label for="negative-intents">业务意图词（每行一个）</label>
+              <textarea id="negative-intents" rows="2" maxlength="2000" placeholder="例如：回收"></textarea>
+              <button type="submit">预览规则结果</button>
+            </form>
+            <p id="negative-result" role="status" aria-live="polite"></p>
+          </dialog>
+          <dialog id="expansion-dialog" aria-labelledby="expansion-title">
+            <div class="daily-heading">
+              <h2 id="expansion-title">拓词预览</h2>
+              <button id="expansion-close" type="button" class="secondary">关闭</button>
+            </div>
+            <p id="expansion-seed"></p>
+            <form id="expansion-form">
+              <label for="expansion-account">账户</label>
+              <select id="expansion-account" required></select>
+              <label for="expansion-quality">质量状态</label>
+              <select id="expansion-quality"><option value="high">优质</option><option value="ordinary">普通</option><option value="pending">待判断</option></select>
+              <label for="expansion-negative">否词状态</label>
+              <select id="expansion-negative"><option value="clear">非否词</option><option value="unknown">未判定</option><option value="suggested">建议否词</option><option value="confirmed">已确认否词</option></select>
+              <button type="submit">生成拓词预览</button>
+            </form>
+            <div class="table-scroll"><table><thead><tr><th>拓展词</th><th>原关键词</th><th>否词规则</th></tr></thead><tbody id="expansion-rows"></tbody></table></div>
+            <p id="expansion-result" role="status" aria-live="polite"></p>
+          </dialog>
+          <dialog id="search-term-dialog" aria-labelledby="search-term-title">
+            <div class="daily-heading">
+              <h2 id="search-term-title">用户搜索词匹配</h2>
+              <button id="search-term-close" type="button" class="secondary">关闭</button>
+            </div>
+            <p id="search-term-keyword"></p>
+            <p id="search-term-status" role="status" aria-live="polite"></p>
+            <div class="table-scroll"><table><thead><tr><th>用户搜索词</th><th>匹配关键词</th><th>来源</th></tr></thead><tbody id="search-term-rows"></tbody></table></div>
+          </dialog>
           <!-- 原生对话框提供键盘焦点限制和 Escape 关闭，明细请求独立取消。 -->
           <dialog id="daily-dialog" aria-labelledby="daily-title">
             <div class="daily-heading">

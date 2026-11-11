@@ -65,27 +65,29 @@ def create_app(
             headers={"Cache-Control": "no-store"},
         )
 
+    web = Path(__file__).parent / "web"
+    # 页面和静态资源即使未开启数据库认证也可访问，便于本地预览登录界面。
+    # 业务 API 仍只在认证与数据库启用时注册，避免预览模式误读真实数据。
+    app.mount("/assets", StaticFiles(directory=web), name="login-assets")
+
+    @app.get("/", include_in_schema=False)
+    def login_page() -> FileResponse:
+        """返回本地页面；未开启认证时页面会显示服务配置提示。"""
+        return FileResponse(
+            web / "index.html",
+            headers={
+                "Cache-Control": "no-store",
+                "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
+                "X-Content-Type-Options": "nosniff",
+                "Referrer-Policy": "no-referrer",
+            },
+        )
+
     if engine is not None:
         register_auth(app, engine, settings.port, clock=clock)
         register_reports(app, engine)
         register_daily_reports(app, engine)
         register_keyword_actions(app, engine)
-        # 本步同源静态登录页用于本地验证，核心业务前端仍按独立批次推进。
-        web = Path(__file__).parent / "web"
-        app.mount("/assets", StaticFiles(directory=web), name="login-assets")
-
-        @app.get("/", include_in_schema=False)
-        def login_page() -> FileResponse:
-            """返回登录页，仅允许同源脚本和样式，不缓存页面内容。"""
-            return FileResponse(
-                web / "index.html",
-                headers={
-                    "Cache-Control": "no-store",
-                    "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
-                    "X-Content-Type-Options": "nosniff",
-                    "Referrer-Policy": "no-referrer",
-                },
-            )
 
     @app.get("/health", response_model=Health)
     def health() -> Health:

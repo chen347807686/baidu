@@ -70,6 +70,7 @@ class KeywordReportRow(KeywordMetrics):
     """按关键词文本合并的当前页记录。"""
 
     keyword: str
+    search_term: str | None = None
 
 
 class KeywordDailyRow(KeywordMetrics):

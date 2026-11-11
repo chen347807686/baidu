@@ -164,6 +164,14 @@ td:first-child {
 #report-status[data-error="true"] {
   color: #a63e31;
 }
+.status-pill {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #edf5ff;
+  color: #2368a8;
+  white-space: nowrap;
+}
 /* 每日明细延续白底浅蓝配色，长词换行，窄屏表格独立横向滚动。 */
 #daily-dialog {
   width: min(920px, 94vw);
@@ -173,6 +181,37 @@ td:first-child {
   padding: 24px;
   color: #22364d;
 }
+#negative-dialog {
+  width: min(620px, 94vw);
+  max-height: 86vh;
+  border: 1px solid #d5e5f5;
+  border-radius: 16px;
+  padding: 24px;
+  color: #22364d;
+}
+#negative-dialog::backdrop { background: rgb(25 48 75 / 35%); }
+#negative-form { display: grid; gap: 8px; }
+#negative-form textarea, #negative-form select { width: 100%; box-sizing: border-box; }
+#negative-result { color: #48698a; line-height: 1.7; }
+#expansion-dialog { width: min(760px, 94vw); max-height: 86vh; border: 1px solid #d5e5f5; border-radius: 16px; padding: 24px; color: #22364d; }
+#expansion-dialog::backdrop { background: rgb(25 48 75 / 35%); }
+#expansion-form { display: grid; gap: 8px; margin-bottom: 16px; }
+#expansion-form select { width: 100%; box-sizing: border-box; }
+#expansion-result { color: #48698a; line-height: 1.7; }
+#search-term-dialog { width: min(760px, 94vw); max-height: 86vh; border: 1px solid #d5e5f5; border-radius: 16px; padding: 24px; color: #22364d; }
+#search-term-dialog::backdrop { background: rgb(25 48 75 / 35%); }
+#search-term-status { color: #48698a; line-height: 1.7; }
+.keyword-action { padding: 6px 10px; white-space: nowrap; }
+.status-good, .status-warn, .status-muted { font-weight: 600; white-space: nowrap; }
+.status-good { color: #16734a; }
+.status-warn { color: #a26a13; }
+.status-muted { color: #6b7d90; }
+.empty-cell { padding: 44px 18px; text-align: center !important; color: #71859a; background: #fbfdff; }
+.table-tools { align-items: end; }
+.view-switch { flex-wrap: wrap; }
+.keyword-action + .keyword-action { margin-left: 6px; }
+.view-switch { display: flex; gap: 6px; align-items: end; margin-right: 14px; }
+.view-tab.active { background: #dceeff; color: #1d5e96; border-color: #9bc7ef; }
 #daily-dialog::backdrop {
   background: rgb(25 48 75 / 35%);
 }

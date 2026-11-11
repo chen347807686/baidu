@@ -63,6 +63,18 @@ async function loadSession() {
         : "暂无可见账户，请联系管理员分配。",
     );
   } catch (error) {
+    if (error.status === 404) {
+      loginPanel.hidden = true;
+      sessionPanel.hidden = false;
+      document.body.classList.add("authenticated");
+      const demo = { user_id: 0, preview: true, accounts: [{ id: 1, name: "演示账户 · 本地数据" }] };
+      document.querySelector("#accounts").replaceChildren(new Option("演示账户 · 本地数据"));
+      document.querySelector("#account-count").textContent = "本地演示数据 · 不写入数据库";
+      document.dispatchEvent(new CustomEvent("session-ready", { detail: demo }));
+      message("当前为本地演示模式，展示模拟关键词与拓词交互。", false);
+      retry.hidden = true;
+      return;
+    }
     if (error.status !== 401) throw error;
     signedOut();
     message("请登录后继续。");

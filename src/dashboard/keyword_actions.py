@@ -5,6 +5,8 @@
 结果当作持久标注或百度操作结果。
 """
 
+from dataclasses import asdict
+
 from fastapi import FastAPI, HTTPException, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import Connection, Engine
@@ -12,6 +14,7 @@ from sqlalchemy import Connection, Engine
 from dashboard.access import visible_account_ids
 from dashboard.auth import AuthenticationError, authenticate
 from dashboard.auth_constants import COOKIE
+from dashboard.keyword_expansion import ExpansionSeed, simulate_expansion
 from dashboard.keyword_negative_rules import NegativeRuleProfile, judge_negative
 
 
@@ -41,6 +44,52 @@ class NegativePreviewOutput(BaseModel):
     reason: str
     source: str
     persistent: bool = False
+
+
+class ExpansionPreviewInput(BaseModel):
+    """拓词预览输入；当前使用模拟生成器，不保存任务。"""
+
+    model_config = ConfigDict(strict=True, extra="forbid")
+
+    account_id: int
+    seed_id: str = Field(min_length=1, max_length=128)
+    keyword: str = Field(min_length=1, max_length=65535)
+    quality: str = Field(default="high", pattern="^(high|ordinary|pending)$")
+    negative_status: str = Field(default="clear", pattern="^(clear|unknown|suggested|confirmed)$")
+    custom_negatives: list[str] = Field(default_factory=list, max_length=500)
+    categories: dict[str, list[str]] = Field(default_factory=dict, max_length=100)
+    competitor_brands: list[str] = Field(default_factory=list, max_length=500)
+    non_target_regions: list[str] = Field(default_factory=list, max_length=500)
+    intent_words: list[str] = Field(default_factory=list, max_length=500)
+
+
+class ExpansionPreviewCandidate(BaseModel):
+    """候选与原词、否词规则结果的关联。"""
+
+    model_config = ConfigDict(strict=True, extra="forbid")
+
+    candidate_id: str
+    seed_id: str
+    account_id: int
+    keyword: str
+    source_keyword: str
+    negative_matched: bool
+    negative_category: str
+    negative_reason: str
+    status: str
+
+
+class ExpansionPreviewOutput(BaseModel):
+    """拓词预览响应；persistent 固定为 false。"""
+
+    model_config = ConfigDict(strict=True, extra="forbid")
+
+    account_id: int
+    seed_id: str
+    source_keyword: str
+    persistent: bool = False
+    candidates: list[ExpansionPreviewCandidate]
+    mode: str = "simulation"
 
 
 def preview_negative(connection: Connection, user_id: int, body: NegativePreviewInput) -> NegativePreviewOutput:
@@ -83,3 +132,47 @@ def register_keyword_actions(app: FastAPI, engine: Engine) -> None:
             raise HTTPException(403, "账户不可见") from None
         response.headers["Cache-Control"] = "no-store"
         return result
+
+    @app.post("/api/v1/keywords/expansion-preview", response_model=ExpansionPreviewOutput)
+    def expansion_preview(
+        body: ExpansionPreviewInput, request: Request, response: Response
+    ) -> ExpansionPreviewOutput:
+        """校验账户权限后生成拓词候选预览，不创建任务或写入数据库。"""
+        try:
+            with engine.begin() as connection:
+                user_id = authenticate(connection, request.cookies.get(COOKIE, ""))
+                visible = visible_account_ids(user_id)
+                if connection.execute(
+                    visible.where(visible.selected_columns.id == body.account_id)
+                ).first() is None:
+                    raise PermissionError("账户不可见")
+                profile = NegativeRuleProfile.from_mapping(
+                    body.categories,
+                    competitor_brands=body.competitor_brands,
+                    non_target_regions=body.non_target_regions,
+                    intent_words=body.intent_words,
+                )
+                rows = simulate_expansion(
+                    ExpansionSeed(
+                        seed_id=body.seed_id,
+                        account_id=body.account_id,
+                        keyword=body.keyword,
+                        quality=body.quality,
+                        negative_status=body.negative_status,
+                    ),
+                    profile=profile,
+                    custom_negatives=tuple(body.custom_negatives),
+                )
+        except AuthenticationError:
+            raise HTTPException(401, "请先登录") from None
+        except PermissionError:
+            raise HTTPException(403, "账户不可见") from None
+        except ValueError as error:
+            raise HTTPException(422, str(error)) from None
+        response.headers["Cache-Control"] = "no-store"
+        return ExpansionPreviewOutput(
+            account_id=body.account_id,
+            seed_id=body.seed_id,
+            source_keyword=body.keyword,
+            candidates=[ExpansionPreviewCandidate.model_validate(asdict(row)) for row in rows],
+        )
