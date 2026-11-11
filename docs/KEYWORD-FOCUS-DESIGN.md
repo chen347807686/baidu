@@ -15,7 +15,7 @@ K1 的状态、质量规则建议、否词范围、人工覆盖与固定验收�
 | `keyword_monitor/expansion.py:create_run/run_expansion` | 保存任务、种子快照、进度、候选及失败信息 | 实际调用 `KRService/getKRByQuery`，属于百度推荐，不是大模型生成；旧 Web 内守护线程不适合作为新持久执行机制 |
 | `keyword_monitor/expansion.py:_candidate_from_item` | 候选保留 `seed_word/seed_source/seed_leads`，展示和导出可追溯 | 旧候选按词去重后只保留一个种子；新版去重需独立保留全部来源关系 |
 | `keyword_monitor/expansion.py:list_candidates/update_candidates_status/export_candidates` | 分页筛选、待审核/采纳/忽略、单条/批量处理、CSV/Excel | 审核状态与否词状态独立；展示原词和否词原因；不能以“忽略”替代否词标注 |
-| `relevance_screen/screen.py:run`、`llm.py:classify_batch` | 账户业务画像、规则先行、模型补充、相关/不相关/边界及理由 | 旧模型用于相关性分类，不是大模型拓词；业务相关不能直接推导为优质 |
+| `relevance_screen/screen.py:run`、`llm.py:classify_batch` | 规则先行、命中原因、人工覆盖和否词处理 | 新流程只使用规则判断否词；不引入相关/不相关/边界分类，也不把否词结果当作质量分 |
 | `relevance_screen/negatives.py:match_word/match_words` | 精确/包含匹配、词类型范围及上传词库解析 | 命中必须带账户、适用范围及匹配依据；模型建议与人工确认分开 |
 
 ## 2. 建议的最小工作台
